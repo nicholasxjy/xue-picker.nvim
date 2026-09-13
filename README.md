@@ -102,7 +102,38 @@ Each action accepts a string or list of strings; `false` or `{}` disables it. Ov
 
 Previews are disabled by default: side-by-side on wide screens, stacked on narrow screens, and hidden when space is insufficient. Loaded buffers take priority to show unsaved modifications; on-disk files are read asynchronously, capped at 1 MiB and 2,000 lines by default, centered around the target location. Binary and oversized files display an informational notice.
 
-Highlight groups include `XuePickerNormal`, `Prompt`, `Match`, `Directory`, `Selected`, `Marker`, `Hint`, `Count`, `Error`, `Git`, `Group`, `PreviewLine`, and `Border` (all prefixed with `XuePicker`). They link to standard semantic groups by default, preserve user-defined overrides, and respond to `ColorScheme` events. Custom styling can be configured via `defaults.highlights = { XuePickerMatch = { ... } }`.
+All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The target groups must be defined by your colorscheme or fzf-lua; the picker does not load fzf-lua automatically. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups.
+
+| Picker Group | Default Link |
+| --- | --- |
+| `XuePickerNormal` | `FzfLuaNormal` |
+| `XuePickerPrompt` | `FzfLuaFzfPrompt` |
+| `XuePickerMatch` | `FzfLuaFzfMatch` |
+| `XuePickerDirectory` | `FzfLuaDirPart` |
+| `XuePickerSelected` | `FzfLuaFzfCursorLine` |
+| `XuePickerMarker` | `FzfLuaFzfMarker` |
+| `XuePickerHint` | `FzfLuaFzfHeader` |
+| `XuePickerCount` | `FzfLuaFzfInfo` |
+| `XuePickerError` | `DiagnosticError` |
+| `XuePickerGit` | `DiffChange` |
+| `XuePickerGroup` | `FzfLuaHeaderText` |
+| `XuePickerPreviewLine` | `FzfLuaCursorLine` |
+| `XuePickerBorder` | `FzfLuaBorder` |
+
+Override groups using full names and `nvim_set_hl()` definitions:
+
+```lua
+require("xue-picker").setup({
+  defaults = {
+    highlights = {
+      XuePickerMatch = { fg = "#ff9e64", bold = true },
+      XuePickerSelected = { link = "Visual" },
+    },
+  },
+})
+```
+
+Each supplied group definition replaces the inherited definition, including its `link` and `default` fields; other groups are inherited. Picker-specific and per-call `highlights` follow the usual configuration precedence. Definitions apply globally when a picker opens and are reapplied on `ColorScheme` while it is open. Use `default = true` in an override to preserve an existing definition.
 
 ## Optional fff Content Search
 

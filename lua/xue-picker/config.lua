@@ -23,7 +23,21 @@ M.defaults = {
   sort = true,
   git = { enabled = true, modified_bonus = false },
   filter = { cwd = false },
-  highlights = {},
+  highlights = {
+    XuePickerNormal = { link = "FzfLuaNormal", default = true },
+    XuePickerPrompt = { link = "FzfLuaFzfPrompt", default = true },
+    XuePickerMatch = { link = "FzfLuaFzfMatch", default = true },
+    XuePickerDirectory = { link = "FzfLuaDirPart", default = true },
+    XuePickerSelected = { link = "FzfLuaFzfCursorLine", default = true },
+    XuePickerMarker = { link = "FzfLuaFzfMarker", default = true },
+    XuePickerHint = { link = "FzfLuaFzfHeader", default = true },
+    XuePickerCount = { link = "FzfLuaFzfInfo", default = true },
+    XuePickerError = { link = "DiagnosticError", default = true },
+    XuePickerGit = { link = "DiffChange", default = true },
+    XuePickerGroup = { link = "FzfLuaHeaderText", default = true },
+    XuePickerPreviewLine = { link = "FzfLuaCursorLine", default = true },
+    XuePickerBorder = { link = "FzfLuaBorder", default = true },
+  },
   actions = {},
   keymaps = {
     next = { "<C-n>", "<Down>", "<Tab>" },
@@ -75,6 +89,9 @@ function M.merge(...)
     for key, value in pairs(select(i, ...) or {}) do
       if key == "items" then
         out[key] = value -- Candidate arrays can contain 100,000 entries and opaque user values.
+      elseif key == "highlights" and type(value) == "table" and not vim.islist(value) then
+        -- Each definition replaces the previous one: inherited links ignore explicit colors.
+        out[key] = vim.tbl_extend("force", type(out[key]) == "table" and out[key] or {}, vim.deepcopy(value))
       elseif type(value) == "table" and not vim.islist(value) then
         out[key] = M.merge(type(out[key]) == "table" and out[key] or {}, value)
       else

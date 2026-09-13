@@ -14,7 +14,60 @@ require("xue-picker").setup({
       enabled = true,
       modified_bonus = false,
     },
-    highlights = {},
+    highlights = {
+      XuePickerBorder = {
+        default = true,
+        link = "FzfLuaBorder",
+      },
+      XuePickerCount = {
+        default = true,
+        link = "FzfLuaFzfInfo",
+      },
+      XuePickerDirectory = {
+        default = true,
+        link = "FzfLuaDirPart",
+      },
+      XuePickerError = {
+        default = true,
+        link = "DiagnosticError",
+      },
+      XuePickerGit = {
+        default = true,
+        link = "DiffChange",
+      },
+      XuePickerGroup = {
+        default = true,
+        link = "FzfLuaHeaderText",
+      },
+      XuePickerHint = {
+        default = true,
+        link = "FzfLuaFzfHeader",
+      },
+      XuePickerMarker = {
+        default = true,
+        link = "FzfLuaFzfMarker",
+      },
+      XuePickerMatch = {
+        default = true,
+        link = "FzfLuaFzfMatch",
+      },
+      XuePickerNormal = {
+        default = true,
+        link = "FzfLuaNormal",
+      },
+      XuePickerPreviewLine = {
+        default = true,
+        link = "FzfLuaCursorLine",
+      },
+      XuePickerPrompt = {
+        default = true,
+        link = "FzfLuaFzfPrompt",
+      },
+      XuePickerSelected = {
+        default = true,
+        link = "FzfLuaFzfCursorLine",
+      },
+    },
     icons = "auto",
     keymaps = {
       accept = { "<CR>", "<C-y>" },

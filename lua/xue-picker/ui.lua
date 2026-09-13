@@ -1,24 +1,9 @@
 local api, U = vim.api, require("xue-picker.util")
 local M = {}
 local ns = api.nvim_create_namespace("XuePicker")
-local groups = {
-  Normal = "Normal",
-  Prompt = "Question",
-  Match = "Search",
-  Directory = "Comment",
-  Selected = "Visual",
-  Marker = "Special",
-  Hint = "Comment",
-  Count = "Number",
-  Error = "DiagnosticError",
-  Git = "DiffChange",
-  Group = "Directory",
-  PreviewLine = "CursorLine",
-  Border = "WinSeparator",
-}
 function M.highlights(opts)
-  for name, link in pairs(groups) do
-    api.nvim_set_hl(0, "XuePicker" .. name, { link = link, default = true })
+  for name, def in pairs(require("xue-picker.config").defaults.highlights) do
+    api.nvim_set_hl(0, name, def)
   end
   for name, def in pairs(opts.highlights or {}) do
     api.nvim_set_hl(0, name, def)

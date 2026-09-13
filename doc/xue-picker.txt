@@ -117,8 +117,34 @@ UI 与预览                                               *xue-picker-ui*
 
     高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Directory、
     Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
-    链接标准语义组，保留已有设置，响应 ColorScheme。
-    defaults.highlights 可指定完整组名及 nvim_set_hl() 配置。
+    所有默认定义导出至 defaults.highlights 和 doc/default-config.lua。
+    默认链接 fzf-lua 高亮组（左侧均带 XuePicker 前缀）：
+        Normal       -> FzfLuaNormal
+        Prompt       -> FzfLuaFzfPrompt
+        Match        -> FzfLuaFzfMatch
+        Directory    -> FzfLuaDirPart
+        Selected     -> FzfLuaFzfCursorLine
+        Marker       -> FzfLuaFzfMarker
+        Hint         -> FzfLuaFzfHeader
+        Count        -> FzfLuaFzfInfo
+        Group        -> FzfLuaHeaderText
+        PreviewLine  -> FzfLuaCursorLine
+        Border       -> FzfLuaBorder
+    Error -> DiagnosticError、Git -> DiffChange（fzf-lua 无对应语义组）。
+    目标组由配色或 fzf-lua 定义；本插件不会自动加载 fzf-lua。
+    默认 default=true，保留已有设置，打开期间响应 ColorScheme。
+    defaults.highlights 可指定完整组名及 nvim_set_hl() 配置： >lua
+        require("xue-picker").setup({
+          defaults = {
+            highlights = {
+              XuePickerMatch = { fg = "#ff9e64", bold = true },
+              XuePickerSelected = { link = "Visual" },
+            },
+          },
+        })
+<   每个组的定义整体替换，含 link/default 字段；未指定的组继续继承。
+    支持 picker 级和单次调用覆盖，优先级同其他配置。
+    高亮定义在 picker 打开时全局生效；覆盖中可用 default=true 保留已有定义。
 
 vim.ui                                                  *xue-picker-vim-ui*
     builtin.ui_select(items, opts, on_choice)

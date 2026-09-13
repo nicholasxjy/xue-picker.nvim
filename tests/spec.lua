@@ -144,14 +144,17 @@ test("filename and icon spans handle Unicode, escaped characters and match prior
   eq({ { text = "x.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
   eq({}, highlighted(s, "XuePickerDirectory"))
 end)
-test("files and smart right-align directories by display width and preserve directory matches", function()
+test("files and smart align directories to the longest visible row independently of window width", function()
   for _, builtin in ipairs({ B.files, B.smart }) do
     local item = U.file(fixture .. "/目录\t/alpha.lua", fixture)
     item.status = "+"
+    local second_directory = "very-long-directory/目/"
+    local second = U.file(fixture .. "/" .. second_directory .. "b.lua", fixture)
     local s = ready(builtin(opts({
       query = "目",
+      sort = false,
       source = function(_, emit)
-        emit({ item }, { replace = true, done = true })
+        emit({ item, second }, { replace = true, done = true })
       end,
       icons = function()
         return "📄 ", "Special"
@@ -159,24 +162,36 @@ test("files and smart right-align directories by display width and preserve dire
     })))
     s.git_status[item.path] = " M"
     local directory = "目录⇥/"
-    for _, width in ipairs({ 120, 60, 32 }) do
+    local longest_width = vim.fn.strdisplaywidth("    📄 b.lua  " .. second_directory)
+    local baseline
+    for _, width in ipairs({ 120, 60, 32, 8 }) do
       s.ui.list_width = width
-      eq({ { text = directory, priority = 150 } }, highlighted(s, "XuePickerDirectory"))
-      eq({ { text = "alpha.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+      eq({
+        { text = directory, priority = 150 },
+        { text = second_directory, priority = 150 },
+      }, highlighted(s, "XuePickerDirectory"))
+      eq({
+        { text = "alpha.lua", priority = 100 },
+        { text = "b.lua", priority = 100 },
+      }, highlighted(s, "XuePickerFilename"))
       eq({ { text = "   M", priority = 150 } }, highlighted(s, "XuePickerGit"))
-      local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
-      eq(width, vim.fn.strdisplaywidth(line))
-      eq(directory, line:sub(-#directory))
+      local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 2, false)
+      eq(longest_width, vim.fn.strdisplaywidth(lines[1]))
+      eq(longest_width, vim.fn.strdisplaywidth(lines[2]))
+      eq(directory, lines[1]:sub(-#directory))
+      assert(lines[2]:find("b.lua  " .. second_directory, 1, true))
+      baseline = baseline or lines
+      eq(baseline, lines)
       local matches = highlighted(s, "XuePickerMatch")
       assert(#matches > 0)
       for _, match in ipairs(matches) do
         eq("目", match.text)
       end
     end
-    s.ui.list_width = 8
-    s.ui:render()
+    s:set_query("alpha")
+    ready(s).ui:render()
     local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
-    assert(line:find("alpha.lua  +   M  " .. directory, 1, true))
+    eq("▸   📄 alpha.lua  +   M  " .. directory, line)
     s.opts.path_format = "relative"
     s.ui:render()
     line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]

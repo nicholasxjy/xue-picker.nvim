@@ -41,10 +41,18 @@ def snapshot(nvim, name):
 def check_directory_alignment(nvim):
     nvim.exec_lua("""
       s.ui:render()
-      local line=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,1,false)[1]
+      local lines=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,-1,false)
       local directory='lua/xue-picker/'
-      assert(line:sub(-#directory)==directory)
-      assert(vim.fn.strdisplaywidth(line)==vim.api.nvim_win_get_width(s.ui.wins.list))
+      assert(lines[1]:sub(-#directory)==directory)
+      local longest=0
+      for _,line in ipairs(lines) do
+        local left,path=line:match('^(.-)%s%s+([^%s]+/)$')
+        if left then longest=math.max(longest,vim.fn.strdisplaywidth(left..'  '..path)) end
+      end
+      assert(longest>0)
+      for _,line in ipairs(lines) do
+        if line~='' then assert(vim.fn.strdisplaywidth(line)==longest) end
+      end
     """)
 
 

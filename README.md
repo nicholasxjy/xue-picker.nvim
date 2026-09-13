@@ -148,7 +148,7 @@ Each supplied group definition replaces the inherited definition, including its 
 
 File icons use the highlight returned by mini.icons or nvim-web-devicons. A custom `icons(item)` callback can return `icon_text, highlight_group`; returning only text uses `XuePickerIcon`. Filename coloring applies to file rows, displayed location paths, and group headings, with search matches taking priority. Custom `path_format` output is treated as a path; a custom `format` callback controls all of its own spans.
 
-For `files` and `smart`, `path_format = "filename_first"` places the filename and any status markers on the left, with the directory aligned to the right edge of the results pane. Alignment accounts for icon and Unicode display widths and adjusts with the preview layout. At least two spaces separate the filename/status from the directory when space is constrained.
+For `files` and `smart`, `path_format = "filename_first"` places the filename and any status markers on the left, followed by a right-aligned directory column. The common right edge comes from the longest visible filename/status/directory row, keeping directories near filenames independently of window width. Alignment accounts for icon and Unicode display widths, with at least two spaces before each directory.
 
 ## Optional fff Content Search
 

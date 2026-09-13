@@ -315,13 +315,12 @@ function M:format(item, index)
     text = text .. "  " .. s.git_status[item.path]
     spans[#spans + 1] = { start, #prefix + #text, "XuePickerGit" }
   end
+  local directory_start
   if right_directory then
-    local gap =
-      math.max(2, self.list_width - vim.fn.strdisplaywidth(prefix .. text .. U.clean(right_directory)))
-    text = text .. string.rep(" ", gap)
-    local start = #prefix + #text
+    text = text .. "  "
+    directory_start = #prefix + #text
     text = append(text, right_directory, #prefix, map, 0)
-    spans[#spans + 1] = { start, #prefix + #text, "XuePickerDirectory" }
+    spans[#spans + 1] = { directory_start, #prefix + #text, "XuePickerDirectory" }
   end
   if item.ranges then
     for _, range in ipairs(item.ranges) do
@@ -338,7 +337,7 @@ function M:format(item, index)
       end
     end
   end
-  return prefix .. text, spans
+  return prefix .. text, spans, directory_start
 end
 function M:render()
   local s = self.session
@@ -360,7 +359,7 @@ function M:render()
       end
     end
   end
-  local lines, marks, selected_row = {}, {}, nil
+  local lines, marks, directories, selected_row = {}, {}, {}, nil
   local height = self.list_height
   s.offset = math.max(1, math.min(s.offset or 1, math.max(1, #s.results)))
   if s.index < s.offset then
@@ -370,7 +369,7 @@ function M:render()
     s.offset = math.max(1, s.index - height + (s.opts.group and 2 or 1))
   end
   local function fill()
-    lines, marks, selected_row = {}, {}, nil
+    lines, marks, directories, selected_row = {}, {}, {}, nil
     local previous
     for i = s.offset, #s.results do
       local item = s.results[i]
@@ -400,8 +399,9 @@ function M:render()
       if #lines >= height then
         break
       end
-      local line, spans = self:format(item, i)
+      local line, spans, directory_start = self:format(item, i)
       lines[#lines + 1] = line
+      directories[#lines - 1] = directory_start
       for _, span in ipairs(spans) do
         marks[#marks + 1] = { #lines - 1, unpack(span) }
       end
@@ -415,6 +415,22 @@ function M:render()
   while #s.results > 0 and not selected_row and s.offset < s.index do
     s.offset = s.offset + 1
     fill()
+  end
+  -- Align directories to the longest visible row, keeping the column near filenames.
+  local directory_edge, padding = 0, {}
+  for row in pairs(directories) do
+    directory_edge = math.max(directory_edge, vim.fn.strdisplaywidth(lines[row + 1]))
+  end
+  for row, start in pairs(directories) do
+    local line = lines[row + 1]
+    padding[row] = directory_edge - vim.fn.strdisplaywidth(line)
+    lines[row + 1] = line:sub(1, start) .. string.rep(" ", padding[row]) .. line:sub(start + 1)
+  end
+  for _, mark in ipairs(marks) do
+    local row = mark[1]
+    if directories[row] and mark[2] >= directories[row] then
+      mark[2], mark[3] = mark[2] + padding[row], mark[3] + padding[row]
+    end
   end
   if #lines == 0 then
     lines =

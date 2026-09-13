@@ -130,8 +130,9 @@ UI 与预览                                               *xue-picker-ui*
     仅返回文本时使用 XuePickerIcon。文件名使用 XuePickerFilename，
     覆盖文件列表、位置路径及分组标题；匹配高亮优先于文件名颜色。
     path_format="filename_first" / "relative" / function(item,cwd)。
-    files/smart 使用 filename_first 时，文件名和状态位于左侧，目录靠
-    结果区域右侧对齐，随预览布局变化；按显示宽度计算，至少保留两个空格。
+    files/smart 使用 filename_first 时，文件名和状态位于左侧，目录跟随其后。
+    目录右边缘对齐当前可见行中最长的文件名/状态/目录组合，不随窗口宽度
+    增加空白；按显示宽度计算，目录前至少保留两个空格。
     自定义 path_format 输出按路径着色；format 回调自行提供高亮范围。
 
     高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Icon、Filename、Directory、

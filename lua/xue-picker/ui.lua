@@ -43,6 +43,9 @@ local function buffer(kind)
   local buf = api.nvim_create_buf(false, true)
   vim.bo[buf].buftype, vim.bo[buf].bufhidden = "nofile", "wipe"
   vim.bo[buf].swapfile, vim.bo[buf].modeline = false, false
+  if kind == "input" then
+    vim.b[buf].completion = false -- Disable Blink completion while typing a query.
+  end
   vim.bo[buf].filetype = "xue-picker-" .. kind
   return buf
 end

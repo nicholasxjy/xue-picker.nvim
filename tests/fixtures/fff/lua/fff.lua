@@ -3,7 +3,9 @@ local M = {}
 local function mode()
   return vim.env.XUE_TEST_FFF_MODE
 end
-function M.setup() end
+function M.setup(config)
+  M.config, vim.g.fff = config, config
+end
 function M.file_search(query, opts)
   -- Programmatic initialization does not initialize fff's picker UI state.
   if mode() == "uninitialized_picker_ui" and opts.wait_for_index_ms > 0 and not M.picker_initialized then
@@ -36,8 +38,13 @@ function M.file_search(query, opts)
     end
     -- Deliberately ranked and typo-matched by the backend, never by the picker.
     local items = {
-      { type = "file", relative_path = "beta.txt", match_ranges = { { 0, 4 } } },
-      { type = "file", relative_path = "src/alpha.lua", match_ranges = { { 4, 9 } } },
+      { type = "file", relative_path = "beta.txt", git_status = "modified", match_ranges = { { 0, 4 } } },
+      {
+        type = "file",
+        relative_path = "src/alpha.lua",
+        git_status = "untracked",
+        match_ranges = { { 4, 9 } },
+      },
     }
     local directory = { type = "directory", relative_path = "src/" }
     local root = { type = "directory", relative_path = "" }
@@ -55,8 +62,16 @@ function M.file_search(query, opts)
     elseif query == "absent24122" then
       items = {}
     elseif query == "current" then
-      assert(opts.current_file == opts.cwd .. "/src/alpha.lua", "missing invoking file")
+      assert(opts.current_file == "src/alpha.lua", "invoking file must use fff's relative-path format")
       items = { items[1] }
+    elseif query == "ranking_config" then
+      assert(M.config.max_threads == 6)
+      assert(M.config.follow_symlinks)
+      assert(M.config.frecency.enabled and M.config.history.enabled)
+      assert(M.config.frecency.db_path == opts.cwd .. "/ranking-frecency")
+      assert(M.config.history.db_path == opts.cwd .. "/ranking-history")
+      assert(M.config.history.min_combo_count == 8)
+      assert(M.config.history.combo_boost_score_multiplier == 250)
     elseif query == "options" then
       assert(opts.max_threads == 2, "missing max_threads")
       assert(opts.current_file == opts.cwd .. "/beta.txt", "missing current_file override")

@@ -69,7 +69,11 @@ function M.shutdown()
   end
 end
 local function acquire(opts, callback, files)
+  local settings = files and require("xue-picker.fff").search_config() or nil
   local key = opts.cwd .. "\0" .. vim.o.runtimepath .. "\0" .. (files and "files" or "grep")
+  if settings then
+    key = key .. "\0" .. vim.inspect(settings)
+  end
   local worker = M.workers[key]
   if worker and worker.ready and not worker.closed then
     U.stop(worker.idle)
@@ -123,7 +127,13 @@ local function acquire(opts, callback, files)
   request(
     worker,
     "init",
-    { cwd = opts.cwd, cache = cache, timeout = opts.fff.ready_timeout_ms, files = files or false },
+    {
+      cwd = opts.cwd,
+      cache = cache,
+      timeout = opts.fff.ready_timeout_ms,
+      files = files or false,
+      config = settings,
+    },
     opts.fff.ready_timeout_ms,
     function(result)
       if result.error then

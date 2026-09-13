@@ -2,7 +2,13 @@ local U = require("xue-picker.util")
 local M = {}
 function M.search(opts, ctx, emit)
   local cancel_normalize
-  local current_file = U.path(vim.api.nvim_buf_get_name(ctx.session.origin.buf))
+  local path = vim.api.nvim_buf_get_name(ctx.session.origin.buf)
+  local current_file = path ~= "" and vim.uv.fs_realpath(path) or nil
+  current_file = current_file
+      and U.inside(current_file, opts.cwd)
+      and vim.fn.filereadable(current_file) == 1
+      and U.relative(current_file, opts.cwd)
+    or nil
   local cancel_search = require("xue-picker.grep.fff").file_search(
     opts,
     ctx.query,
@@ -26,6 +32,7 @@ function M.search(opts, ctx, emit)
             item.text = "."
           end
           local score = result.scores and result.scores[i]
+          item.fff_score, item.git_status = score, match.git_status
           item.score = type(score) == "table" and score.total or nil
           item.ranges = match.match_ranges
           if location and item.type ~= "directory" then

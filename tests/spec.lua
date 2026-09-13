@@ -69,6 +69,7 @@ local function test(name, fn)
   end
   require("xue-picker.grep.fff").shutdown()
   vim.env.XUE_TEST_FFF_MODE = nil
+  vim.g.fff = nil
   picker.setup({})
   vim.cmd("stopinsert")
 end
@@ -370,7 +371,7 @@ test("files and smart align directories to the longest visible row independently
         { text = "alpha.lua", priority = 100 },
         { text = "b.lua", priority = 100 },
       }, highlighted(s, "XuePickerFilename"))
-      eq({ { text = "   M", priority = 150 } }, highlighted(s, "XuePickerGit"))
+      eq(builtin == B.files and { { text = "   M", priority = 150 } } or {}, highlighted(s, "XuePickerGit"))
       local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 2, false)
       eq(longest_width, vim.fn.strdisplaywidth(lines[1]))
       eq(longest_width, vim.fn.strdisplaywidth(lines[2]))
@@ -387,7 +388,7 @@ test("files and smart align directories to the longest visible row independently
     s:set_query("alpha")
     ready(s).ui:render()
     local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
-    eq("▌ 📄 alpha.lua  +   M  " .. directory, line)
+    eq("▌ 📄 alpha.lua  +" .. (builtin == B.files and "   M" or "") .. "  " .. directory, line)
     s.opts.path_format = "relative"
     s.ui:render()
     line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
@@ -1519,6 +1520,50 @@ test("missing fff falls back, missing both remains retryable", function()
   assert(#s.results > 0)
 end)
 vim.opt.rtp:append(vim.fn.getcwd() .. "/tests/fixtures/fff")
+test("smart shares fff ranking configuration and database paths with find_files", function()
+  local s = ready(B.smart(opts()))
+  s:close()
+  vim.g.fff = {
+    max_threads = 6,
+    follow_symlinks = true,
+    frecency = { enabled = true, db_path = fixture .. "/ranking-frecency" },
+    history = {
+      enabled = true,
+      db_path = fixture .. "/ranking-history",
+      min_combo_count = 8,
+      combo_boost_score_multiplier = 250,
+    },
+  }
+  s = ready(B.smart(opts({ query = "ranking_config" })))
+  eq("fff", s.backend)
+  eq(2, #s.results)
+  eq("modified", s.results[1].git_status)
+  eq("untracked", s.results[2].git_status)
+  eq(7, s.results[1].fff_score.total)
+end)
+test("smart renders fff Git signs, filename colors and selected highlights", function()
+  vim.g.fff = { git = { status_text_color = true } }
+  local s = ready(B.smart(opts({ git = { enabled = true } })))
+  eq({ { text = "┃", priority = 150 } }, highlighted(s, "FFFGitSignModifiedSelected"))
+  eq({ { text = "┆", priority = 150 } }, highlighted(s, "FFFGitSignUntracked"))
+  eq({ { text = "beta.txt", priority = 100 } }, highlighted(s, "FFFGitModified"))
+  eq({}, highlighted(s, "XuePickerGit"))
+  eq(nil, s.cancel_git)
+  eq({}, s.git_status)
+  s:move(1)
+  eq({ { text = "┃", priority = 150 } }, highlighted(s, "FFFGitSignModified"))
+  eq({ { text = "┆", priority = 150 } }, highlighted(s, "FFFGitSignUntrackedSelected"))
+  s:act("toggle")
+  eq({ { text = "▊", priority = 150 } }, highlighted(s, "FFFSelectedActive"))
+  s:move(-1)
+  eq({ { text = "▊", priority = 150 } }, highlighted(s, "FFFSelected"))
+  api.nvim_set_hl(0, "FFFGitSignModifiedSelected", { fg = "#fedcba" })
+  api.nvim_exec_autocmds("ColorScheme", { pattern = "default" })
+  eq(0xfedcba, api.nvim_get_hl(0, { name = "FFFGitSignModifiedSelected", link = false }).fg)
+  s:close()
+  s = ready(B.smart(opts()))
+  eq({}, highlighted(s, "FFFGitSignModifiedSelected"))
+end)
 test("smart preserves fff ordering, typo matches, constraints and byte highlights", function()
   vim.v.oldfiles = { fixture .. "/.hidden" }
   local s = ready(B.smart(opts({

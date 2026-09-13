@@ -139,7 +139,7 @@ renders with unchanged state do not emit another event.
 
 ## Query Syntax and Sorting
 
-`smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. Results come from fff's index in `cwd`; buffers and oldfiles are no longer merged. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
+`smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. To match `find_files` ranking, the worker uses fff's configured thread count, history settings, frecency/query database paths, and indexing options. The invoking file is passed as a relative path within `cwd`, matching fff's current-file penalty and distance scoring. Results come from fff's index in `cwd`; buffers and oldfiles are no longer merged. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
 
 Pass `file_search` parameters directly to `smart`, or configure them under `setup({ pickers = { smart = { ... } } })`:
 
@@ -151,7 +151,7 @@ require("xue-picker.builtin").smart({
   max_results = 50, -- items per page; smart defaults to 20000
   page = 0, -- zero-based
   max_threads = 4,
-  current_file = vim.api.nvim_buf_get_name(0), -- defaults to the invoking file
+  current_file = "src/current.lua", -- optional override, relative to cwd
   combo_boost_score_multiplier = 100,
   min_combo_count = 3,
   wait_for_index_ms = 0,
@@ -159,6 +159,8 @@ require("xue-picker.builtin").smart({
 ```
 
 `query` supplies the first argument of `file_search`; the other parameters use fff's names and are forwarded as its options. Omitted thread and combo settings use fff's defaults. Each search displays the requested page in fff's order; directory items expose `item.type = "directory"` to filters and callbacks. Per-call values override configured values. The worker's preparation, request, and idle limits remain under `fff.ready_timeout_ms`, `fff.request_timeout_ms`, and `fff.idle_timeout_ms`; the request limit also bounds an explicit index wait. fff `setup()` options and picker UI settings are separate from these search parameters.
+
+`smart` keeps the `git_status` returned by fff and displays fff's Git marker in its leading gutter: `┆` for untracked files, `┃` for modified/renamed/staged files, and `▁` for deleted files. It uses fff's `FFFGitSign*` highlight groups, cursor-background blending, and `▊` selection marker with `FFFSelected` / `FFFSelectedActive`. fff's `git.status_text_color` and `hl.git_*` / `hl.git_sign_*` overrides also apply. Search highlights take priority over filename colors. Set `smart({ git = { enabled = false } })` to disable this display. Other pickers continue using `XuePickerGit`.
 
 `files` and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102). The following syntax and scoring settings apply to these local pickers:
 
@@ -326,7 +328,7 @@ With `vim.pack` and deferred loading, load the installed fff package before open
 
 `auto` checks the fff interface, native library, and index readiness; it falls back to ripgrep on preparation timeout or unavailability. Explicit `fff` also permits fallback by default; setting `fallback=false` preserves the error panel instead. Sessions that have fallen back stay on ripgrep for the remainder of that session; reopening or resuming checks readiness anew.
 
-The synchronous fff API runs inside an isolated headless Neovim worker, returning paginated results over asynchronous RPC. The worker uses dedicated configuration and cache path `stdpath("cache")/xue-picker/worker/`, loading neither user init nor plugin entry points. Initialization failures, error notifications, API exceptions, request timeouts, and worker exits are all treated as failures; workers are recycled on idle and on exit.
+The synchronous fff API runs inside a headless Neovim worker, returning results over asynchronous RPC and loading neither user init nor plugin entry points. `live_grep` workers use dedicated configuration and databases under `stdpath("cache")/xue-picker/worker/`. `smart` workers inherit fff's search configuration and database paths; workers are separated when those settings differ. Initialization failures, error notifications, API exceptions, request timeouts, and worker exits are all treated as failures; workers are recycled on idle and on exit.
 
 Both backends share identical output conventions: file paths, 1-based line numbers, 0-based UTF-8 byte columns, raw line text, and `[start, end)` byte ranges. Normal empty results, empty queries, and cancellations do not trigger fallback; invalid regex queries produce an explicit error and reject fff's literal fallback results. Fallback clears previous results before rerunning the query.
 

@@ -23,3 +23,4 @@ defaults:
 	$(STYLUA) doc/default-config.lua
 test-fff:
 	$(NVIM) --headless -u NONE -i NONE -l scripts/fff_real.lua
+	$(NVIM) --headless -u NONE -i NONE -l scripts/fff_parity.lua

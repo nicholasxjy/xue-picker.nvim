@@ -31,7 +31,7 @@ function M.request(id, method, args)
       local native_ok, native = pcall(require, "fff.fuzzy")
       assert(native_ok and type(native) == "table", "fff native library is unavailable: " .. tostring(native))
       fff = module
-      fff.setup({
+      local config = {
         base_path = args.cwd,
         lazy_sync = true,
         follow_symlinks = false,
@@ -39,7 +39,11 @@ function M.request(id, method, args)
         history = { enabled = false, db_path = args.cache .. "/history" },
         logging = { enabled = false, log_file = args.cache .. "/fff.log" },
         grep = { enable_filename_constraint = false },
-      })
+      }
+      if args.files then
+        config = vim.tbl_deep_extend("force", config, args.config)
+      end
+      fff.setup(config)
       -- Start indexing without waiting through fff's uninitialized picker UI state.
       assert(type(fff.file_search) == "function", "Incompatible fff API: missing file_search()")
       assert(

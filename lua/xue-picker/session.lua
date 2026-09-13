@@ -556,7 +556,7 @@ function M.new(opts, restore)
         end
         self.started = true
         self:refresh()
-        if opts.file_actions and opts.git.enabled then
+        if opts.file_actions and opts.git.enabled and opts.name ~= "smart" then
           self.cancel_git = require("xue-picker.sources.files").git(opts, function(statuses)
             if not self.closed then
               self.git_status = statuses

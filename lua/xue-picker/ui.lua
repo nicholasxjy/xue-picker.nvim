@@ -2,6 +2,9 @@ local api, U = vim.api, require("xue-picker.util")
 local M = {}
 local ns = api.nvim_create_namespace("XuePicker")
 function M.highlights(opts)
+  if opts.name == "smart" then
+    require("xue-picker.fff").highlights()
+  end
   require("xue-picker.gutter").highlights()
   require("xue-picker.hints").highlights()
   require("xue-picker.buffers").highlights()
@@ -251,6 +254,10 @@ function M:format(item, index)
     return require("xue-picker.diagnostics").format(item, s, self.list_width, icon(item, opts))
   end
   local prefix, spans = require("xue-picker.gutter").render(opts, index == s.index, s.selected[item.id])
+  local fff_style = opts.name == "smart" and require("xue-picker.fff").style(item, s, index == s.index)
+  if fff_style then
+    prefix, spans = fff_style.prefix, fff_style.spans
+  end
   local text, map, right_directory = "", {}, nil
   if grep and item.lnum then
     local line = ("%" .. (self.line_width or 1) .. "d"):format(item.lnum)
@@ -302,7 +309,7 @@ function M:format(item, index)
   if item.status then
     text = text .. "  " .. item.status
   end
-  if item.path and s.git_status[item.path] then
+  if opts.name ~= "smart" and item.path and s.git_status[item.path] then
     local start = #prefix + #text
     text = text .. "  " .. s.git_status[item.path]
     spans[#spans + 1] = { start, #prefix + #text, "XuePickerGit" }
@@ -326,6 +333,13 @@ function M:format(item, index)
     for b in pairs(s.ranker:byte_positions(s.query, item)) do
       if map[b] then
         spans[#spans + 1] = { map[b][1], map[b][2], "XuePickerMatch" }
+      end
+    end
+  end
+  if fff_style and fff_style.filename then
+    for _, span in ipairs(spans) do
+      if span[3] == "XuePickerFilename" then
+        span[3] = fff_style.filename
       end
     end
   end
@@ -475,8 +489,13 @@ function M:render()
   api.nvim_buf_clear_namespace(self.bufs.list, ns, 0, -1)
   for _, row in ipairs(selected_rows) do
     if s.opts.name ~= "buffers" or s.opts.format then
+      local fff_style = s.opts.name == "smart"
+        and s.results[s.index]
+        and require("xue-picker.fff").style(s.results[s.index], s, true)
       api.nvim_buf_set_extmark(self.bufs.list, ns, row, 0, {
-        line_hl_group = s.opts.name == "buffers" and "XuePickerBufferSelected" or "XuePickerSelected",
+        line_hl_group = fff_style and fff_style.cursor
+          or s.opts.name == "buffers" and "XuePickerBufferSelected"
+          or "XuePickerSelected",
         priority = 90,
       })
     end

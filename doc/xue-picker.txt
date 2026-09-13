@@ -100,6 +100,15 @@ Builtins                                                *xue-picker-builtin*
         ignore files are respected. max_results=20000, debounce_ms=30.
         fff.ready_timeout_ms=10000, request_timeout_ms=1000, idle_timeout_ms=60000.
         Searches run in an isolated worker. Missing/failing fff displays an error.
+        Ranking uses the same fff configuration and frecency/query database paths
+        as find_files, with the invoking file relative to cwd. No Lua re-sorting.
+        git_status comes from file_search. The leading gutter uses fff markers:
+        untracked ┆, modified/renamed/staged ┃, deleted ▁; selection uses ▊.
+        Highlight groups follow fff's FFFGitSign*, cursor blending, FFFSelected,
+        FFFSelectedActive and configured hl overrides. fff git.status_text_color
+        controls filename coloring; search matches take priority.
+        smart git.enabled=false disables this display. Other pickers retain
+        their XuePickerGit styling and Git process.
         file_search parameters are top-level smart options, also configurable in
         setup.pickers.smart: cwd, mode, max_results, page, current_file,
         max_threads, combo_boost_score_multiplier, min_combo_count,
@@ -243,8 +252,9 @@ Grep backends                                              *xue-picker-grep*
     For live_grep, fff is optional and must provide content_search()/file_search()
     and its native library. Synchronous searches run in an isolated headless worker,
     with pagination over asynchronous RPC.
-    Workers load neither user init nor plugin entry points, use isolated config
-    and cache directories, and are recycled when idle.
+    Workers load neither user init nor plugin entry points and are recycled when
+    idle. live_grep uses isolated config and database directories; smart shares
+    fff's search configuration and frecency/query database paths with find_files.
     The fff picker UI is not invoked; fff is not installed or compiled automatically.
 
     fff constraint syntax can change query semantics. Queries with whitespace,

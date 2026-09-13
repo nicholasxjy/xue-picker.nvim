@@ -18,11 +18,12 @@ local function ready(s)
   assert(not s.error, s.error)
   return s
 end
-local function highlighted(s, group)
+local function highlighted(s, group, kind)
   s.ui:render()
-  local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, -1, false)
+  local buf = s.ui.bufs[kind or "list"]
+  local lines = api.nvim_buf_get_lines(buf, 0, -1, false)
   local spans = {}
-  for _, mark in ipairs(api.nvim_buf_get_extmarks(s.ui.bufs.list, -1, 0, -1, { details = true })) do
+  for _, mark in ipairs(api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })) do
     local details = mark[4]
     if details.hl_group == group then
       spans[#spans + 1] = {
@@ -296,6 +297,59 @@ test("mapping deduplication, disabling, conflicts before startup", function()
   local ok, err = pcall(picker.pick, { keymaps = { next = "j", previous = "j" } })
   assert(not ok and tostring(err):find("conflict"))
   eq(old, vim.o.cmdheight)
+end)
+test("fzf-style hints preserve key aliases, literal case and separate key and action highlights", function()
+  local s = ready(picker.pick(opts({
+    items = { "foo" },
+    actions = { custom = function() end, ["自定义"] = function() end },
+    keymaps = {
+      next = false,
+      previous = false,
+      refresh = false,
+      custom = { "Z", "z" },
+      ["自定义"] = "<M-j>",
+    },
+  })))
+  s.ui.width = 1000
+  eq({
+    { text = "<enter>", priority = 150 },
+    { text = "<ctrl-y>", priority = 150 },
+    { text = "<esc>", priority = 150 },
+    { text = "<ctrl-c>", priority = 150 },
+    { text = "<Z>", priority = 150 },
+    { text = "<z>", priority = 150 },
+    { text = "<alt-j>", priority = 150 },
+  }, highlighted(s, "XuePickerHintBind", "hint"))
+  eq({
+    { text = "open", priority = 150 },
+    { text = "close", priority = 150 },
+    { text = "custom", priority = 150 },
+    { text = "自定义", priority = 150 },
+  }, highlighted(s, "XuePickerHint", "hint"))
+  eq(
+    ":: <enter>/<ctrl-y> to open|<esc>/<ctrl-c> to close|<Z>/<z> to custom|<alt-j> to 自定义",
+    api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1]
+  )
+  eq("FzfLuaHeaderBind", api.nvim_get_hl(0, { name = "XuePickerHintBind" }).link)
+  eq("FzfLuaHeaderText", api.nvim_get_hl(0, { name = "XuePickerHint" }).link)
+  s.ui.width = 32
+  s.ui:render()
+  eq(
+    ":: <enter> to open|<esc> to close|<Z> to custom|<alt-j> to 自定义",
+    api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1]
+  )
+  eq({ "Z", "z" }, s.keys.custom)
+end)
+test("error hints style retry keys separately and omit disabled recovery actions", function()
+  local s = ready(picker.pick(opts({ items = { "foo" }, keymaps = { close = false, refresh = "<C-r>" } })))
+  s.error, s.ui.width = "错误\nretry failed", 1000
+  eq({ { text = "<ctrl-r>", priority = 150 } }, highlighted(s, "XuePickerHintBind", "hint"))
+  eq({ { text = "retry", priority = 150 } }, highlighted(s, "XuePickerHint", "hint"))
+  eq({ { text = "错误↵retry failed", priority = 150 } }, highlighted(s, "XuePickerError", "hint"))
+  eq(":: <ctrl-r> to retry|错误↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  s.keys.refresh = nil
+  s.ui:render()
+  eq(":: 错误↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
 end)
 test("custom actions and local keymaps are cleaned", function()
   local value = 0

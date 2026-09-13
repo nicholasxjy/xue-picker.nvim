@@ -68,6 +68,9 @@ Builtin                                               *xue-picker-builtin*
     字符串或字符串列表；false / {} 禁用。覆盖动作替换它的全部按键。
     仅在输入 buffer 的插入和普通模式生效，仅绑定当前支持的动作。
     同动作按键去重，跨动作冲突在打开前报错。提示来自实际映射。
+    底部提示采用 fzf-lua 样式：:: <enter> to open|<esc> to close。
+    按键、动作名称和分隔符分别着色；多个按键以 / 分隔，空间不足时
+    只显示每个动作的首个按键。错误时仅提示可用的关闭/重试动作及错误信息。
 
 查询                                                     *xue-picker-query*
     foo bar       AND             foo | bar       OR
@@ -126,7 +129,8 @@ UI 与预览                                               *xue-picker-ui*
     自定义 path_format 输出按路径着色；format 回调自行提供高亮范围。
 
     高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Icon、Filename、Directory、
-    LineNr、ColNr、Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
+    LineNr、ColNr、Selected、Marker、Hint、HintBind、HintSeparator、Count、Error、
+    Git、Group、PreviewLine、Border。
     所有默认定义导出至 defaults.highlights 和 doc/default-config.lua。
     默认链接 fzf-lua 高亮组（左侧均带 XuePicker 前缀）：
         Normal       -> FzfLuaNormal
@@ -139,7 +143,9 @@ UI 与预览                                               *xue-picker-ui*
         ColNr        -> FzfLuaPathColNr
         Selected     -> FzfLuaFzfCursorLine
         Marker       -> FzfLuaFzfMarker
-        Hint         -> FzfLuaFzfHeader
+        Hint         -> FzfLuaHeaderText
+        HintBind     -> FzfLuaHeaderBind
+        HintSeparator -> FzfLuaFzfHeader
         Count        -> FzfLuaFzfInfo
         Group        -> FzfLuaHeaderText
         PreviewLine  -> FzfLuaCursorLine

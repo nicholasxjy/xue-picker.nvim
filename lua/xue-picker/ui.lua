@@ -230,6 +230,19 @@ local function path_spans(text, offset, spans, directory_group)
   -- Filename styling sits below search matches and above the selected row.
   spans[#spans + 1] = { offset + #directory, offset + #text, "XuePickerFilename", 100 }
 end
+local function hint_key(key)
+  local special = key:match("^<([^<>]+)>$")
+  if special then
+    special = special:lower()
+    local aliases = { cr = "enter", bs = "backspace", del = "delete" }
+    local modifiers = { c = "ctrl", a = "alt", m = "alt", s = "shift" }
+    key = aliases[special]
+      or special:gsub("([cams])%-", function(modifier)
+        return modifiers[modifier] .. "-"
+      end)
+  end
+  return "<" .. U.clean(key) .. ">"
+end
 function M:format(item, index)
   local s, opts = self.session, self.session.opts
   if opts.format then
@@ -444,18 +457,18 @@ function M:render()
     )
   end
   local labels = {
-    accept = "打开",
-    close = "关闭",
-    next = "下一项",
-    previous = "上一项",
-    toggle = "多选",
-    preview = "预览",
-    refresh = "刷新",
-    delete = "删除",
-    split = "分屏",
-    vsplit = "竖分",
-    tab = "标签",
-    toggle_all = "全选",
+    accept = "open",
+    close = "close",
+    next = "next",
+    previous = "previous",
+    toggle = "select",
+    preview = "preview",
+    refresh = "refresh",
+    delete = "delete",
+    split = "split",
+    vsplit = "vsplit",
+    tab = "tab",
+    toggle_all = "select all",
   }
   local names = {
     "accept",
@@ -471,38 +484,52 @@ function M:render()
     "tab",
     "toggle_all",
   }
-  for name in pairs(s.keys) do
+  for _, name in ipairs(vim.fn.sort(vim.tbl_keys(s.keys))) do
     if not labels[name] then
       names[#names + 1] = name
     end
   end
+  if s.error then
+    names, labels.refresh = { "close", "refresh" }, "retry"
+  end
   local function hints(first_only)
-    local parts = {}
+    local text, spans = "", {}
+    local function add(value, group)
+      spans[#spans + 1] = { #text, #text + #value, group }
+      text = text .. value
+    end
     for _, name in ipairs(names) do
       local keys = s.keys[name]
       if keys and #keys > 0 then
-        parts[#parts + 1] = (first_only and keys[1] or table.concat(keys, "/"))
-          .. " "
-          .. (labels[name] or name)
+        add(text == "" and ":: " or "|", "XuePickerHintSeparator")
+        for i, key in ipairs(keys) do
+          if i > 1 then
+            if first_only then
+              break
+            end
+            add("/", "XuePickerHintSeparator")
+          end
+          add(hint_key(key), "XuePickerHintBind")
+        end
+        add(" to ", "XuePickerHintSeparator")
+        add(U.clean(labels[name] or name), "XuePickerHint")
       end
     end
-    return " " .. table.concat(parts, "  ")
+    if s.error then
+      add(text == "" and ":: " or "|", "XuePickerHintSeparator")
+      add(U.clean(s.error), "XuePickerError")
+    end
+    return text, spans
   end
-  local hint = hints(false)
+  local hint, hint_spans = hints(false)
   if vim.fn.strdisplaywidth(hint) > self.width then
-    hint = hints(true)
-  end
-  if s.error then
-    hint = " "
-      .. ((s.keys.close or {})[1] or "")
-      .. " 关闭  "
-      .. ((s.keys.refresh or {})[1] or "")
-      .. " 重试  "
-      .. U.clean(s.error)
+    hint, hint_spans = hints(true)
   end
   api.nvim_buf_set_lines(self.bufs.hint, 0, -1, false, { hint })
   api.nvim_buf_clear_namespace(self.bufs.hint, ns, 0, -1)
-  highlight(self.bufs.hint, 0, 0, #hint, s.error and "XuePickerError" or "XuePickerHint")
+  for _, span in ipairs(hint_spans) do
+    highlight(self.bufs.hint, 0, unpack(span))
+  end
 end
 function M:preview(lines, row)
   if not api.nvim_buf_is_valid(self.bufs.preview) then

@@ -49,6 +49,14 @@ require("xue-picker").setup({
       },
       XuePickerHint = {
         default = true,
+        link = "FzfLuaHeaderText",
+      },
+      XuePickerHintBind = {
+        default = true,
+        link = "FzfLuaHeaderBind",
+      },
+      XuePickerHintSeparator = {
+        default = true,
         link = "FzfLuaFzfHeader",
       },
       XuePickerIcon = {

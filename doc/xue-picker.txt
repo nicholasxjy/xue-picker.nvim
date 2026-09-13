@@ -169,8 +169,24 @@ Grep backends                                              *xue-picker-grep*
     Widths stay consistent while scrolling and update when new results arrive.
     Line numbers use XuePickerLineNr; columns use XuePickerColNr.
     Custom path_format callbacks format file-path headings.
+    live_grep and grep_word highlight the entire header path with
+    XuePickerGrepPath, linked to FzfLuaFilePart by default.
 
 UI and preview                                               *xue-picker-ui*
+    Prompts follow fzf-lua's default-prompt profile:
+        files/smart: cwd path ending in /; cwd_prompt=false uses Files> .
+        buffers: Buffers> ; live_grep/grep_word: Grep> ; diagnostics: Diagnostics> .
+        marks: Marks> ; oldfiles: Oldfiles> ; git_files: GitFiles> ; manpages: Man> .
+        history: Command history> or Search history>, depending on type.
+        ui_select: Select one of> ; ui_input: Input> ; custom pick: > .
+    Cwd parent components are shortened after cwd_prompt_shorten_len=32 bytes,
+    retaining cwd_prompt_shorten_val=1 characters per parent component.
+    An explicit prompt overrides the cwd prompt. Global, picker, and call-level
+    prompt overrides follow normal precedence. ui_select converts a caller's
+    trailing colon to > ; ui_input preserves the supplied prompt.
+    Prefixes use XuePickerPrompt. Typed input uses XuePickerQuery, except
+    live_grep/grep_word use XuePickerLivePrompt. Input highlight callbacks take
+    priority over the default query color.
     layout.height=0.4, max_height=18. The full-width bottom panel contains
     input/results/hints.
     preview.enabled=false. Wide layouts place preview beside results; narrow
@@ -194,15 +210,18 @@ UI and preview                                               *xue-picker-ui*
     Custom path_format output receives path highlights;
     format callbacks provide their own highlight ranges.
 
-    Highlight groups (all prefixed with XuePicker): Normal, Prompt, Match, Icon,
+    Highlight groups (all prefixed with XuePicker): Normal, Prompt, Query,
+    LivePrompt, Match, Icon,
     Filename, Directory, LineNr, ColNr, Selected, Marker, Hint, HintBind,
-    HintSeparator, Count, Error, Git, Group, PreviewLine, Border,
+    HintSeparator, Count, Error, Git, Group, GrepPath, PreviewLine, Border,
     DiagnosticError, DiagnosticWarn, DiagnosticInfo, DiagnosticHint, DiagnosticCode.
     All default definitions are exported in defaults.highlights and
     doc/default-config.lua.
     Default links to fzf-lua groups (left names have the XuePicker prefix):
         Normal       -> FzfLuaNormal
         Prompt       -> FzfLuaFzfPrompt
+        Query        -> FzfLuaFzfQuery
+        LivePrompt   -> FzfLuaLivePrompt
         Match        -> FzfLuaFzfMatch
         Icon         -> FzfLuaNormal (when the provider returns no group)
         Filename     -> FzfLuaFilePart
@@ -216,6 +235,7 @@ UI and preview                                               *xue-picker-ui*
         HintSeparator -> FzfLuaFzfHeader
         Count        -> FzfLuaFzfInfo
         Group        -> FzfLuaHeaderText
+        GrepPath     -> FzfLuaFilePart
         PreviewLine  -> FzfLuaCursorLine
         Border       -> FzfLuaBorder
         DiagnosticError -> DiagnosticSignError

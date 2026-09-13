@@ -393,7 +393,11 @@ function M:render()
           end
         end
         lines[#lines + 1] = prefix .. path
-        path_spans(path, #prefix, spans, "XuePickerGroup")
+        if grep then
+          spans[#spans + 1] = { #prefix, #prefix + #path, "XuePickerGrepPath" }
+        else
+          path_spans(path, #prefix, spans, "XuePickerGroup")
+        end
         for _, span in ipairs(spans) do
           marks[#marks + 1] = { #lines - 1, unpack(span) }
         end
@@ -482,6 +486,7 @@ function M:render()
     highlight(self.bufs.list, 0, 0, #lines[1], "XuePickerError")
   end
   api.nvim_buf_clear_namespace(self.bufs.input, ns, 0, -1)
+  highlight(self.bufs.input, 0, 0, #s.query, grep and "XuePickerLivePrompt" or "XuePickerQuery", 100)
   if s.opts.highlight then
     local handler = type(s.opts.highlight) == "string" and vim.fn[s.opts.highlight] or s.opts.highlight
     for _, span in ipairs(handler(s.query) or {}) do

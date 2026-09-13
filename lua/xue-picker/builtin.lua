@@ -414,7 +414,7 @@ function M.ui_select(items, opts, on_choice)
     items = choices,
     resumable = false,
     sort = false,
-    prompt = opts.prompt or "Select: ",
+    prompt = opts.prompt and opts.prompt:gsub(":%s?$", "> ") or nil,
     on_accept = function(selected)
       callback(items[selected[1].original_index], selected[1].original_index)
     end,
@@ -441,7 +441,6 @@ function M.ui_input(opts, on_confirm)
     live = opts.completion ~= nil,
     debounce_ms = 0,
     query = opts.default or "",
-    prompt = opts.prompt or "Input: ",
     on_accept = function(selected)
       callback(selected[1].text)
     end,

@@ -1,7 +1,7 @@
 local M = {}
 
 M.defaults = {
-  prompt = "❯ ",
+  prompt = "> ",
   pointer = "▸",
   marker = "●",
   icons = "auto",
@@ -27,6 +27,8 @@ M.defaults = {
   highlights = {
     XuePickerNormal = { link = "FzfLuaNormal", default = true },
     XuePickerPrompt = { link = "FzfLuaFzfPrompt", default = true },
+    XuePickerQuery = { link = "FzfLuaFzfQuery", default = true },
+    XuePickerLivePrompt = { link = "FzfLuaLivePrompt", default = true },
     XuePickerMatch = { link = "FzfLuaFzfMatch", default = true },
     XuePickerIcon = { link = "FzfLuaNormal", default = true },
     XuePickerFilename = { link = "FzfLuaFilePart", default = true },
@@ -42,6 +44,7 @@ M.defaults = {
     XuePickerError = { link = "DiagnosticError", default = true },
     XuePickerGit = { link = "DiffChange", default = true },
     XuePickerGroup = { link = "FzfLuaHeaderText", default = true },
+    XuePickerGrepPath = { link = "FzfLuaFilePart", default = true },
     XuePickerPreviewLine = { link = "FzfLuaCursorLine", default = true },
     XuePickerDiagnosticError = { link = "DiagnosticSignError", default = true },
     XuePickerDiagnosticWarn = { link = "DiagnosticSignWarn", default = true },
@@ -67,8 +70,17 @@ M.defaults = {
   },
 }
 M.pickers = {
-  smart = { matcher = { frecency = true }, filter = { cwd = true } },
+  files = { prompt = "Files> ", cwd_prompt = true, cwd_prompt_shorten_len = 32, cwd_prompt_shorten_val = 1 },
+  smart = {
+    prompt = "Files> ",
+    cwd_prompt = true,
+    cwd_prompt_shorten_len = 32,
+    cwd_prompt_shorten_val = 1,
+    matcher = { frecency = true },
+    filter = { cwd = true },
+  },
   diagnostics = {
+    prompt = "Diagnostics> ",
     scope = "workspace",
     sort = true,
     icons = false,
@@ -81,11 +93,16 @@ M.pickers = {
     multiline = 2,
     signs = {},
   },
-  buffers = { sort = false, force = false },
-  oldfiles = { sort = false },
-  marks = { sort = false },
-  history = { type = "cmd", sort = false },
+  buffers = { prompt = "Buffers> ", sort = false, force = false },
+  oldfiles = { prompt = "Oldfiles> ", sort = false },
+  marks = { prompt = "Marks> ", sort = false },
+  history = { prompt = "Command history> ", type = "cmd", sort = false },
+  git_files = { prompt = "GitFiles> " },
+  manpages = { prompt = "Man> " },
+  ui_select = { prompt = "Select one of> " },
+  ui_input = { prompt = "Input> " },
   live_grep = {
+    prompt = "Grep> ",
     backend = "auto",
     fallback = true,
     mode = "regex",
@@ -131,7 +148,30 @@ function M.setup(opts)
   M.user = opts or {}
 end
 function M.resolve(name, opts)
-  return M.merge(M.defaults, M.pickers[name], M.user.defaults, (M.user.pickers or {})[name], opts)
+  local picker = (M.user.pickers or {})[name]
+  local resolved = M.merge(M.defaults, M.pickers[name], M.user.defaults, picker, opts)
+  local custom_prompt = (opts or {}).prompt ~= nil
+    or (picker or {}).prompt ~= nil
+    or (M.user.defaults or {}).prompt ~= nil
+  if not custom_prompt then
+    if resolved.cwd_prompt then
+      local U = require("xue-picker.util")
+      local cwd, current = U.cwd(resolved.cwd), U.cwd()
+      local path = cwd ~= current and U.inside(cwd, current) and U.relative(cwd, current) or cwd
+      local home = U.path(vim.uv.os_homedir())
+      if U.inside(path, home) then
+        path = "~" .. path:sub(#home + 1)
+      end
+      local limit = tonumber(resolved.cwd_prompt_shorten_len)
+      if limit and #path >= limit then
+        path = vim.fn.pathshorten(path, math.max(1, tonumber(resolved.cwd_prompt_shorten_val) or 1))
+      end
+      resolved.prompt = path:gsub("/$", "") .. "/"
+    elseif name == "history" and resolved.type == "search" then
+      resolved.prompt = "Search history> "
+    end
+  end
+  return resolved
 end
 
 function M.bindings(opts, actions)

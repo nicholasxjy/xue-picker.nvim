@@ -63,6 +63,10 @@ require("xue-picker").setup({
         default = true,
         link = "DiffChange",
       },
+      XuePickerGrepPath = {
+        default = true,
+        link = "FzfLuaFilePart",
+      },
       XuePickerGroup = {
         default = true,
         link = "FzfLuaHeaderText",
@@ -87,6 +91,10 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaPathLineNr",
       },
+      XuePickerLivePrompt = {
+        default = true,
+        link = "FzfLuaLivePrompt",
+      },
       XuePickerMarker = {
         default = true,
         link = "FzfLuaFzfMarker",
@@ -106,6 +114,10 @@ require("xue-picker").setup({
       XuePickerPrompt = {
         default = true,
         link = "FzfLuaFzfPrompt",
+      },
+      XuePickerQuery = {
+        default = true,
+        link = "FzfLuaFzfQuery",
       },
       XuePickerSelected = {
         default = true,
@@ -159,7 +171,7 @@ require("xue-picker").setup({
       max_bytes = 1048576,
       max_lines = 2000,
     },
-    prompt = "❯ ",
+    prompt = "> ",
     scan = {
       args = {},
       cmd = "rg",
@@ -173,6 +185,7 @@ require("xue-picker").setup({
   pickers = {
     buffers = {
       force = false,
+      prompt = "Buffers> ",
       sort = false,
     },
     diagnostics = {
@@ -186,11 +199,22 @@ require("xue-picker").setup({
       },
       icons = false,
       multiline = 2,
+      prompt = "Diagnostics> ",
       scope = "workspace",
       signs = {},
       sort = true,
     },
+    files = {
+      cwd_prompt = true,
+      cwd_prompt_shorten_len = 32,
+      cwd_prompt_shorten_val = 1,
+      prompt = "Files> ",
+    },
+    git_files = {
+      prompt = "GitFiles> ",
+    },
     history = {
+      prompt = "Command history> ",
       sort = false,
       type = "cmd",
     },
@@ -209,6 +233,7 @@ require("xue-picker").setup({
       max_file_size = 10485760,
       max_results = 20000,
       mode = "regex",
+      prompt = "Grep> ",
       ripgrep = {
         args = {},
         cmd = "rg",
@@ -216,19 +241,34 @@ require("xue-picker").setup({
       smartcase = true,
       sort = false,
     },
+    manpages = {
+      prompt = "Man> ",
+    },
     marks = {
+      prompt = "Marks> ",
       sort = false,
     },
     oldfiles = {
+      prompt = "Oldfiles> ",
       sort = false,
     },
     smart = {
+      cwd_prompt = true,
+      cwd_prompt_shorten_len = 32,
+      cwd_prompt_shorten_val = 1,
       filter = {
         cwd = true,
       },
       matcher = {
         frecency = true,
       },
+      prompt = "Files> ",
+    },
+    ui_input = {
+      prompt = "Input> ",
+    },
+    ui_select = {
+      prompt = "Select one of> ",
     },
   },
   ui = {

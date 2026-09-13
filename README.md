@@ -57,7 +57,7 @@ require("xue-picker.builtin").grep_word({ cwd = "~/project" })
 
 `cwd` defaults to the working directory at call time. By default, hidden files are included, ignore rules are respected, `.git` contents are excluded, and symlinks are not followed; spaces, newlines, backslashes, and `$` in paths are treated as literal filenames. The UI displays control characters as visible symbols, while file opening and quickfix export preserve the original paths.
 
-`live_grep` displays each file icon beside its filepath header. Each match starts with separate, right-aligned `line:column` fields before the content; both displayed numbers are 1-based. Field widths use the widest numbers in the current results and remain consistent while scrolling. A custom `path_format` callback formats the filepath header.
+`live_grep` displays each file icon beside its filepath header. In both `live_grep` and `grep_word`, the entire header path uses `XuePickerGrepPath`, linked to `FzfLuaFilePart` by default. Each match starts with separate, right-aligned `line:column` fields before the content; both displayed numbers are 1-based. Field widths use the widest numbers in the current results and remain consistent while scrolling. A custom `path_format` callback formats the filepath header.
 
 `diagnostics.sort` controls source ordering and remains in effect while filtering:
 
@@ -99,6 +99,24 @@ Default smartcase matches the reference implementation: all-lowercase queries ig
 
 ## Configuration and Keymaps
 
+Input prompts follow fzf-lua's `default-prompt` profile. `files` and `smart` use the working-directory path with a trailing `/`, shortening parent components when it reaches 32 bytes. Set `cwd_prompt=false` to use `Files> `, or supply `prompt` to override it.
+
+| Method | Default prompt |
+| --- | --- |
+| `buffers` | `Buffers> ` |
+| `live_grep`, `grep_word` | `Grep> ` |
+| `diagnostics` | `Diagnostics> ` |
+| `marks` | `Marks> ` |
+| `oldfiles` | `Oldfiles> ` |
+| `git_files` | `GitFiles> ` |
+| `history` | `Command history> ` or `Search history> ` |
+| `manpages` | `Man> ` |
+| `ui_select` | `Select one of> `; caller prompts ending in `:` become `> `, as in fzf-lua |
+| `ui_input` | `Input> `; caller-provided prompts are preserved |
+| Custom `pick` | `> ` |
+
+`prompt` can be overridden globally, per picker, or per call. The prefix uses `XuePickerPrompt` → `FzfLuaFzfPrompt`. Typed text uses `XuePickerQuery` → `FzfLuaFzfQuery`, while `live_grep` and `grep_word` use `XuePickerLivePrompt` → `FzfLuaLivePrompt`. Custom input-highlight callbacks take priority over the default query color.
+
 Precedence: built-in defaults → `setup.defaults` → `setup.pickers[name]` → per-call options. Records are merged field-by-field, while lists are replaced as a whole. See [doc/default-config.lua](doc/default-config.lua) for the full configuration, regenerable from code with `make defaults`.
 
 ```lua
@@ -138,6 +156,8 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | --- | --- |
 | `XuePickerNormal` | `FzfLuaNormal` |
 | `XuePickerPrompt` | `FzfLuaFzfPrompt` |
+| `XuePickerQuery` | `FzfLuaFzfQuery` |
+| `XuePickerLivePrompt` | `FzfLuaLivePrompt` |
 | `XuePickerMatch` | `FzfLuaFzfMatch` |
 | `XuePickerIcon` | `FzfLuaNormal` (fallback when the icon provider supplies no group) |
 | `XuePickerFilename` | `FzfLuaFilePart` |
@@ -153,6 +173,7 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerError` | `DiagnosticError` |
 | `XuePickerGit` | `DiffChange` |
 | `XuePickerGroup` | `FzfLuaHeaderText` |
+| `XuePickerGrepPath` | `FzfLuaFilePart` |
 | `XuePickerPreviewLine` | `FzfLuaCursorLine` |
 | `XuePickerBorder` | `FzfLuaBorder` |
 | `XuePickerDiagnosticError` | `DiagnosticSignError` |

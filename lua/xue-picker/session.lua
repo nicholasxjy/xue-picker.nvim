@@ -460,7 +460,7 @@ function M.new(opts, restore)
   M.active = self
   local ok, failure = xpcall(function()
     self.ui = require("xue-picker.ui").open(self)
-    self.ui:query(self.query)
+    self.query = self.ui:query(self.query)
     self.ui:render()
     self.augroup = api.nvim_create_augroup("XuePickerSession" .. serial, { clear = true })
     api.nvim_create_autocmd({ "TabLeave", "VimLeavePre" }, {
@@ -504,7 +504,7 @@ function M.new(opts, restore)
         self:draw()
       end,
     })
-    vim.cmd("startinsert!")
+    self.ui.input:start()
     -- The input is already present; dependency loading and data preparation start next turn.
     vim.schedule(function()
       if self.closed then

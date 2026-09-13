@@ -117,6 +117,8 @@ Input prompts follow fzf-lua's `default-prompt` profile. `files` and `smart` use
 
 `prompt` can be overridden globally, per picker, or per call. The prefix uses `XuePickerPrompt` → `FzfLuaFzfPrompt`. Typed text uses `XuePickerQuery` → `FzfLuaFzfQuery`, while `live_grep` and `grep_word` use `XuePickerLivePrompt` → `FzfLuaLivePrompt`. Custom input-highlight callbacks take priority over the default query color.
 
+The input row separates the fixed, read-only prompt from the editable query, following fzf's prompt/query layout. Empty queries and Home position the cursor immediately after the prompt; prefilled and resumed queries start at their end. Long queries scroll independently of the prompt. On narrow layouts the visible prompt is clipped to leave room for input. Paste and programmatic updates keep a single query line, and highlight callbacks receive query-relative byte offsets.
+
 Precedence: built-in defaults → `setup.defaults` → `setup.pickers[name]` → per-call options. Records are merged field-by-field, while lists are replaced as a whole. See [doc/default-config.lua](doc/default-config.lua) for the full configuration, regenerable from code with `make defaults`.
 
 ```lua

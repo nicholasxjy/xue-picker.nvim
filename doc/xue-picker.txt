@@ -187,6 +187,11 @@ UI and preview                                               *xue-picker-ui*
     Prefixes use XuePickerPrompt. Typed input uses XuePickerQuery, except
     live_grep/grep_word use XuePickerLivePrompt. Input highlight callbacks take
     priority over the default query color.
+    The fixed prompt and editable query occupy separate parts of the input row.
+    Empty input and Home place the cursor after the prompt; initial/resumed text
+    places it at the end. Long queries scroll while the prompt stays fixed.
+    Narrow layouts clip the prompt to keep input space available. Pasted input
+    stays on one line; highlight callback byte offsets refer only to the query.
     layout.height=0.4, max_height=18. The full-width bottom panel contains
     input/results/hints.
     preview.enabled=false. Wide layouts place preview beside results; narrow

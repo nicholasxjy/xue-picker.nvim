@@ -56,6 +56,92 @@ def check_directory_alignment(nvim):
     """)
 
 
+def check_input_position(nvim, query, byte_col=None):
+    byte_col = len(query.encode()) if byte_col is None else byte_col
+    wait(nvim, "s.started and not s.render_timer and vim.fn.mode()=='i'")
+    nvim.exec_lua(r"""
+      local query,col=...
+      assert(s.query==query, vim.inspect({expected=query,actual=s.query}))
+      assert(vim.deep_equal(vim.api.nvim_buf_get_lines(s.input_buf,0,-1,false),{query}))
+      assert(vim.api.nvim_get_current_win()==s.ui.wins.input)
+      assert(vim.api.nvim_win_get_cursor(s.ui.wins.input)[2]==col)
+      vim.cmd('redraw')
+      local position=vim.api.nvim_win_get_position(s.ui.wins.input)
+      local actual=position[2]+vim.fn.screencol()-1
+      local expected=vim.fn.strdisplaywidth(s.opts.prompt..query:sub(1,col))
+      assert(actual==expected, vim.inspect({expected=expected,actual=actual}))
+    """, query, byte_col)
+
+
+def check_input_editing(nvim):
+    # Empty input and Home must leave the cursor after the protected prompt.
+    for prompt in ("Grep> ", "🔎 café> "):
+        nvim.exec_lua("s=require('xue-picker').pick({prompt=...,items={'alpha','beta'}})", prompt)
+        check_input_position(nvim, "")
+        nvim.input("alpha")
+        wait(nvim, "s.query=='alpha'")
+        check_input_position(nvim, "alpha")
+        nvim.input("<Home><BS>")
+        wait(nvim, "vim.api.nvim_win_get_cursor(s.ui.wins.input)[2]==0")
+        check_input_position(nvim, "alpha", 0)
+        nvim.input("X")
+        wait(nvim, "s.query=='Xalpha'")
+        check_input_position(nvim, "Xalpha", 1)
+        nvim.input("<End><C-u>")
+        wait(nvim, "s.query==''")
+        check_input_position(nvim, "")
+        nvim.api.paste("café\nnext", False, -1)
+        wait(nvim, "s.query=='café next'")
+        check_input_position(nvim, "café next")
+        nvim.exec_lua("s:close(); s=require('xue-picker').resume()")
+        check_input_position(nvim, "café next")
+        nvim.exec_lua("s=require('xue-picker').pick({prompt=...,query='seed',items={}})", prompt)
+        nvim.input("x")
+        wait(nvim, "s.query=='seedx'")
+        check_input_position(nvim, "seedx")
+        nvim.exec_lua("s:close()")
+    nvim.exec_lua("s=require('xue-picker.builtin').ui_input({prompt='Input> ',default='café'},function() end)")
+    check_input_position(nvim, "café")
+    nvim.input("!")
+    wait(nvim, "s.query=='café!'")
+    check_input_position(nvim, "café!")
+    nvim.exec_lua("s:set_query(string.rep('x',200))")
+    for width in (70, 32, 120):
+        nvim.ui_try_resize(width, 40)
+        wait(nvim, f"s.ui.width=={width} and not s.render_timer")
+        nvim.exec_lua(r"""
+          vim.cmd('redraw')
+          local pos=vim.api.nvim_win_get_position(s.ui.wins.input)
+          local col=pos[2]+vim.fn.screencol()-1
+          assert(pos[2]==#s.opts.prompt and col>=pos[2] and col<s.ui.width)
+          assert(vim.api.nvim_buf_get_lines(s.ui.bufs.prompt,0,1,false)[1]==s.opts.prompt)
+        """)
+        nvim.input("<Home>")
+        wait(nvim, "vim.api.nvim_win_get_cursor(s.ui.wins.input)[2]==0")
+        check_input_position(nvim, "x" * 200, 0)
+        nvim.input("<End>")
+        wait(nvim, "vim.api.nvim_win_get_cursor(s.ui.wins.input)[2]==200")
+    nvim.exec_lua("s:set_query(''); s.opts.prompt=string.rep('📁/',50); s.ui:render()")
+    nvim.ui_try_resize(32, 40)
+    wait(nvim, "s.ui.width==32 and not s.render_timer")
+    nvim.exec_lua(r"""
+      local text=vim.api.nvim_buf_get_lines(s.ui.bufs.prompt,0,1,false)[1]
+      local width=vim.fn.strdisplaywidth(text)
+      assert(width<32 and vim.api.nvim_win_get_position(s.ui.wins.input)[2]==width)
+      assert(vim.api.nvim_win_get_width(s.ui.wins.input)>0)
+      assert(not vim.bo[s.ui.bufs.prompt].modifiable)
+      assert(not vim.api.nvim_win_get_config(s.ui.wins.prompt).focusable)
+    """)
+    nvim.exec_lua("s.opts.prompt=''; s.ui:render()")
+    check_input_position(nvim, "")
+    nvim.exec_lua("s.opts.prompt='Grep> '; s.ui:render()")
+    check_input_position(nvim, "")
+    prompt_buf = nvim.exec_lua("return s.ui.bufs.prompt")
+    nvim.exec_lua("s:close()")
+    assert not nvim.api.buf_is_valid(prompt_buf)
+    nvim.ui_try_resize(120, 40)
+
+
 def run():
     faulthandler.dump_traceback_later(20, exit=True)
     nvim = pynvim.attach("child", argv=[os.environ.get("NVIM", "nvim"), "--embed", "-u", "NONE", "-i", "NONE", "--noplugin"])
@@ -64,6 +150,7 @@ def run():
         nvim.exec_lua("vim.opt.rtp:prepend(...)", str(ROOT))
         nvim.command("runtime plugin/xue-picker.lua")
         nvim.exec_lua("vim.o.cmdheight=0; vim.o.swapfile=false; vim.g.xue_origin=vim.api.nvim_get_current_win()")
+        check_input_editing(nvim)
         nvim.exec_lua("s=require('xue-picker.builtin').files({cwd=..., git={enabled=false}})", str(ROOT))
         wait(nvim, "s.closed or (not s.loading and not s.searching)")
         assert not nvim.exec_lua("return s.closed"), nvim.command_output("messages")

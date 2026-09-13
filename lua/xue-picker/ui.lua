@@ -67,14 +67,15 @@ function M.open(session)
   setmetatable(self, { __index = M })
   session.ui = self
   M.highlights(session.opts)
-  for _, name in ipairs({ "input", "list", "hint", "preview" }) do
+  for _, name in ipairs({ "prompt", "input", "list", "hint", "preview" }) do
     self.bufs[name] = buffer(name)
   end
   vim.bo[self.bufs.preview].bufhidden = "hide"
+  vim.bo[self.bufs.prompt].bufhidden = "hide"
   session.input_buf = self.bufs.input
+  self.input = require("xue-picker.input").new(self)
   self:layout()
-  api.nvim_set_current_win(self.wins.input)
-  vim.wo[self.wins.input].cursorline = false
+  self.input:focus()
   -- Messages are positioned above the reserved picker area. Keep existing ui2
   -- configuration intact and restore the hook only if it is still ours.
   if core.msg and core.msg.set_pos then
@@ -101,31 +102,6 @@ function M.open(session)
     end
     core.msg.show_msg = self.show_message
   end
-  api.nvim_buf_attach(self.bufs.input, false, {
-    on_lines = function()
-      if session.closed or self.setting then
-        return
-      end
-      vim.schedule(function()
-        if session.closed or not api.nvim_buf_is_valid(self.bufs.input) then
-          return
-        end
-        local lines = api.nvim_buf_get_lines(self.bufs.input, 0, -1, false)
-        local value = table.concat(lines, " ")
-        if #lines > 1 then
-          self:query(value)
-        end
-        session:set_query(value, true)
-      end)
-    end,
-  })
-  for action, keys in pairs(session.keys) do
-    for _, lhs in ipairs(keys) do
-      vim.keymap.set({ "i", "n" }, lhs, function()
-        session:act(action)
-      end, { buffer = self.bufs.input, silent = true, nowait = true, desc = "XuePicker " .. action })
-    end
-  end
   return self
 end
 function M:layout()
@@ -137,10 +113,14 @@ function M:layout()
   self.core.cmdheight = self.height
   local hint_height = opts.hint == false and 0 or 1
   self.width, self.list_height, self.list_width = vim.o.columns, self.height - 1 - hint_height, vim.o.columns
+  local prompt_width = self.input:layout(self.width)
   local layouts = {
-    input = { 0, 0, self.width, 1, true },
+    input = { 0, prompt_width, self.width - prompt_width, 1, true },
     list = { 1, 0, self.width, self.list_height, false },
   }
+  if prompt_width > 0 then
+    layouts.prompt = { 0, 0, prompt_width, 1, false }
+  end
   if hint_height > 0 then
     layouts.hint = { self.height - 1, 0, self.width, 1, false }
   end
@@ -168,7 +148,7 @@ function M:layout()
       vim.wo[self.wins[name]].wrap = false
     end
   end
-  for _, name in ipairs({ "preview", "hint" }) do
+  for _, name in ipairs({ "preview", "hint", "prompt" }) do
     if not layouts[name] and self.wins[name] then
       -- Keep scratch buffers across layout toggles.
       vim.bo[self.bufs[name]].bufhidden = "hide"
@@ -178,10 +158,7 @@ function M:layout()
   end
 end
 function M:query(text)
-  self.setting = true
-  api.nvim_buf_set_lines(self.bufs.input, 0, -1, false, { text })
-  api.nvim_win_set_cursor(self.wins.input, { 1, #text })
-  self.setting = false
+  return self.input:set(text)
 end
 local function highlight(buf, row, first, last, group, priority)
   if last > first then
@@ -485,21 +462,6 @@ function M:render()
   if s.error then
     highlight(self.bufs.list, 0, 0, #lines[1], "XuePickerError")
   end
-  api.nvim_buf_clear_namespace(self.bufs.input, ns, 0, -1)
-  highlight(self.bufs.input, 0, 0, #s.query, grep and "XuePickerLivePrompt" or "XuePickerQuery", 100)
-  if s.opts.highlight then
-    local handler = type(s.opts.highlight) == "string" and vim.fn[s.opts.highlight] or s.opts.highlight
-    for _, span in ipairs(handler(s.query) or {}) do
-      highlight(self.bufs.input, 0, math.max(0, span[1]), math.min(#s.query, span[2]), span[3])
-    end
-  end
-  api.nvim_buf_set_extmark(
-    self.bufs.input,
-    ns,
-    0,
-    0,
-    { virt_text = { { U.clean(s.opts.prompt), "XuePickerPrompt" } }, virt_text_pos = "inline" }
-  )
   local status = s.error and "Failed"
     or not grep and (s.loading and "Loading" or s.searching and "Searching")
     or ""
@@ -510,15 +472,7 @@ function M:render()
     math.max(#s.items, #s.results),
     s.truncated and " · Truncated" or ""
   )
-  if self.width > vim.fn.strdisplaywidth(s.query .. s.opts.prompt .. count) + 2 then
-    api.nvim_buf_set_extmark(
-      self.bufs.input,
-      ns,
-      0,
-      0,
-      { virt_text = { { count, "XuePickerCount" } }, virt_text_pos = "right_align" }
-    )
-  end
+  self.input:render(count)
   if s.opts.hint == false then
     return
   end

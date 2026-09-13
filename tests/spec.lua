@@ -626,6 +626,44 @@ test("multi-selection quickfix converts zero-based byte columns", function()
   eq(1, vim.fn.getqflist()[1].col)
   vim.cmd("cclose")
 end)
+test("opening files lists new and existing buffers before BufEnter", function()
+  for _, existing in ipairs({ false, true }) do
+    local name = existing and "tabline-existing.txt" or "tabline-new [file].txt"
+    write(name, { "tabline regression" })
+    local path = fixture .. "/" .. name
+    local buf = existing and vim.fn.bufadd(path) or nil
+    if buf then
+      assert(not vim.bo[buf].buflisted)
+    end
+    local listed_on_enter
+    local event = api.nvim_create_autocmd("BufEnter", {
+      callback = function(ev)
+        if api.nvim_buf_get_name(ev.buf) == path then
+          listed_on_enter = vim.bo[ev.buf].buflisted
+        end
+      end,
+    })
+    local s = ready(picker.pick(opts({ items = { { path = path, bufnr = buf, text = name } } })))
+    s:accept("edit")
+    api.nvim_del_autocmd(event)
+    eq(path, api.nvim_buf_get_name(0))
+    assert(vim.bo.buflisted and listed_on_enter)
+    local opened = api.nvim_get_current_buf()
+    local buffers = ready(B.buffers(opts()))
+    assert(buffers.ids["buffer:" .. opened])
+    buffers:close()
+    api.nvim_buf_delete(opened, { force = true })
+    vim.fn.delete(path)
+  end
+end)
+test("opening a special buffer preserves its unlisted status", function()
+  local buf = api.nvim_create_buf(false, true)
+  vim.bo[buf].buftype = "nofile"
+  require("xue-picker.actions").open({ { bufnr = buf } }, "edit")
+  eq(buf, api.nvim_get_current_buf())
+  assert(not vim.bo[buf].buflisted)
+  api.nvim_buf_delete(buf, { force = true })
+end)
 test("file location query opens and unfolds correct location", function()
   local s = ready(B.files(opts({ query = "alpha.lua:3:2" })))
   eq(1, #s.results)
@@ -637,8 +675,10 @@ test("split, vsplit and tab actions open after restoring the picker", function()
     local tab, win = api.nvim_get_current_tabpage(), api.nvim_get_current_win()
     local before = #api.nvim_tabpage_list_wins(tab)
     local s = ready(B.files(opts({ query = "alpha.lua" })))
+    vim.bo[vim.fn.bufnr(fixture .. "/src/alpha.lua")].buflisted = false
     s:accept(action)
     eq(fixture .. "/src/alpha.lua", api.nvim_buf_get_name(0))
+    assert(vim.bo.buflisted)
     assert(s.closed)
     if action == "tab" then
       assert(api.nvim_get_current_tabpage() ~= tab)

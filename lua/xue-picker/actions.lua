@@ -26,10 +26,15 @@ function M.open(items, action, location)
   elseif action == "vsplit" then
     vim.cmd("vsplit")
   end
-  if item.bufnr and vim.api.nvim_buf_is_valid(item.bufnr) then
-    vim.api.nvim_set_current_buf(item.bufnr)
-  elseif item.path then
-    local buf = vim.fn.bufadd(item.path)
+  local buf = item.bufnr
+  if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+    buf = item.path and vim.fn.bufadd(item.path) or nil
+  end
+  if buf then
+    -- bufadd() leaves files unlisted; tablines and buffer pickers need them listed.
+    if vim.bo[buf].buftype == "" then
+      vim.bo[buf].buflisted = true
+    end
     vim.fn.bufload(buf)
     vim.api.nvim_set_current_buf(buf)
   end

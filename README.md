@@ -181,13 +181,15 @@ require("xue-picker").setup({
 })
 ```
 
-Each action accepts a string or list of strings; `false` or `{}` disables it. Overriding an action replaces all of its keybindings, while other actions are inherited. Keymaps only take effect in insert and normal modes of the picker input buffer, binding only actions supported by the active picker. Duplicate keys within an action are deduplicated, and conflicts across actions error before opening the picker. Bottom hints use fzf-lua's `:: <ctrl-x> to select|<ctrl-s> to split` style, with separate key, action, and separator highlights. They reflect actual mappings, show aliases separated by `/`, and display only the first key of each action when space is constrained. Open, close, next, previous, preview, and refresh are hidden from hints while their shortcuts remain active. Error hints show only the error message.
+Each action accepts a string or list of strings; `false` or `{}` disables it. Overriding an action replaces all of its keybindings, while other actions are inherited. Keymaps only take effect in insert and normal modes of the picker input buffer, binding only actions supported by the active picker. Duplicate keys within an action are deduplicated, and conflicts across actions error before opening the picker.
+
+Bottom hints follow [fzf-lua's action headers](https://github.com/ibhagwan/fzf-lua/blob/32bfd06486da508ac6ea87804370d6ffc27c4e24/lua/fzf-lua/core.lua#L781): `:: <ctrl-s> to split|<ctrl-x> to select`, with two leading spaces and one column reserved on the right. Bindings appear individually in key order, including aliases. Only the key text inside `<…>` uses `XuePickerHintBind`; action labels use `XuePickerHint`; brackets, ` to `, the prefix, and `|` use `XuePickerHintSeparator`. Narrow layouts truncate with fzf's `··`, preserving Unicode characters and the colors beneath the ellipsis. Open, close, next, previous, preview, and refresh are hidden from hints while their shortcuts remain active. Error hints show only the error message.
 
 Set `defaults.hint = false` to hide the hint bar globally, `pickers.live_grep.hint = false` for a specific picker, or pass `{ hint = false }` to a builtin call. Hints default to `true`. Hiding them frees the row for results or the preview; keybindings remain active.
 
 Previews are disabled by default: side-by-side on wide screens, stacked on narrow screens, and hidden when space is insufficient. Loaded buffers take priority to show unsaved modifications; on-disk files are read asynchronously, capped at 1 MiB and 2,000 lines by default, centered around the target location. Binary and oversized files display an informational notice.
 
-All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The target groups must be defined by your colorscheme or fzf-lua; the picker does not load fzf-lua automatically. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups. Diagnostic signs and codes link to the same Neovim groups used by fzf-lua.
+All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The picker does not load fzf-lua automatically. Hints have fzf-lua's default colors even when its groups are absent: keys use BlanchedAlmond in dark backgrounds and MediumSpringGreen in light backgrounds; action labels use Brown1 and Brown4 respectively. Separators fall back through `FzfLuaTitle`, `FzfLuaNormal`, and `Normal`. Defined fzf-lua groups, colorscheme overrides, and explicit XuePicker highlight settings take precedence. Other linked target groups must be defined by your colorscheme or fzf-lua. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups. Diagnostic signs and codes link to the same Neovim groups used by fzf-lua.
 
 | Picker Group | Default Link |
 | --- | --- |
@@ -324,12 +326,15 @@ python3 -m venv .test-data/venv
 .test-data/venv/bin/pip install -r tests/requirements.txt
 make ui PYTHON=.test-data/venv/bin/python
 XUE_LUALINE=/path/to/lualine.nvim make ui PYTHON=.test-data/venv/bin/python
+XUE_FZF_LUA=/path/to/fzf-lua make ui PYTHON=.test-data/venv/bin/python
 make perf
 make perf-ui PYTHON=.test-data/venv/bin/python
 XUE_FFF_RTP=/path/to/installed/fff make test-fff  # Optional, requires pre-built native library
 ```
 
 Full test suites also require a local `man` installation (e.g. `man-db` on Linux) to verify `:Man` navigation actions. `XUE_LUALINE` enables tests against a real lualine checkout; CI uses a pinned commit to verify both global and per-window statuslines.
+
+`XUE_FZF_LUA` enables rendered hint comparisons against a real fzf-lua checkout and requires the `fzf` executable. It compares every character cell and RGB attribute in dark/light backgrounds at wide and narrow widths.
 
 The differential script extracts test oracles from the fixed reference commit into a temporary directory without taking the reference implementation as a runtime dependency. Integration tests verify success, pagination, and failure paths through a real worker/RPC setup using controlled fff test doubles; cold/hot index benchmarks with real fff native libraries require external dependencies. CI runs lint, integration, differential, and attached-UI tests across Neovim stable and nightly, recording UI snapshots and performance JSON.
 

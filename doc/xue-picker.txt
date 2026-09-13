@@ -141,17 +141,29 @@ Keymaps                                                 *xue-picker-keymaps*
     only supported actions are bound.
     Duplicate keys for the same action are removed. Conflicts between actions
     raise an error before opening. Hints reflect the actual mappings.
-    Bottom hints use the fzf-lua style:
-        :: <ctrl-x> to select|<ctrl-s> to split
-    Keys, action names, and separators have separate highlights.
-    Multiple keys use / separators; when space is limited, only the first key
-    for each action is shown. Hints for open, close, next, previous, preview,
+    Bottom hints match fzf-lua's action headers:
+        :: <ctrl-s> to split|<ctrl-x> to select
+    The row has two leading spaces and reserves one column on the right.
+    Each binding has its own entry, sorted by key, including aliases.
+    Only the key text inside <...> uses XuePickerHintBind; action names use
+    XuePickerHint. Brackets, " to ", the prefix and | use XuePickerHintSeparator.
+    Narrow rows truncate with fzf's two-dot ellipsis, preserving Unicode and
+    the colors under the replaced cells. Hints for open, close, next, previous, preview,
     and refresh are hidden while their shortcuts remain active.
     On error, the hint bar displays only the error message.
+    Buffer deletion is labeled "close", matching fzf-lua.
     hint=true shows the hint bar by default. defaults.hint=false hides it globally;
     pickers.live_grep.hint=false hides it for that picker. Individual calls also
     accept hint=false. Hiding the bar gives its row to results/preview;
     shortcuts remain active.
+
+    Hint groups prefer FzfLuaHeaderBind, FzfLuaHeaderText and FzfLuaFzfHeader.
+    When these are undefined, keys use BlanchedAlmond (dark background) or
+    MediumSpringGreen (light); action names use Brown1 (dark) or Brown4 (light).
+    Separators fall back through FzfLuaTitle, FzfLuaNormal and Normal.
+    No fzf-lua dependency is required. Existing theme definitions and explicit
+    XuePicker highlight overrides are preserved; defaults refresh on ColorScheme
+    and picker opening.
 
 Queries                                                   *xue-picker-query*
     foo bar       AND             foo | bar       OR

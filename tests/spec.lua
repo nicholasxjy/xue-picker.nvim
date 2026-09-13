@@ -529,7 +529,7 @@ test("hint visibility reclaims preview space and preserves buffers across layout
   s:close()
   assert(not api.nvim_buf_is_valid(hint_buf))
 end)
-test("fzf-style hints preserve key aliases, literal case and separate key and action highlights", function()
+test("fzf headers sort individual bindings and color only key text inside brackets", function()
   local s = ready(picker.pick(opts({
     items = { "foo" },
     actions = { custom = function() end, ["more🌟"] = function() end, preview = function() end },
@@ -540,24 +540,96 @@ test("fzf-style hints preserve key aliases, literal case and separate key and ac
   })))
   s.ui.width = 1000
   eq({
-    { text = "<Z>", priority = 150 },
-    { text = "<z>", priority = 150 },
-    { text = "<alt-j>", priority = 150 },
+    { text = "Z", priority = 150 },
+    { text = "alt-j", priority = 150 },
+    { text = "z", priority = 150 },
   }, highlighted(s, "XuePickerHintBind", "hint"))
   eq({
     { text = "custom", priority = 150 },
     { text = "more🌟", priority = 150 },
+    { text = "custom", priority = 150 },
   }, highlighted(s, "XuePickerHint", "hint"))
-  eq(":: <Z>/<z> to custom|<alt-j> to more🌟", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
-  eq("FzfLuaHeaderBind", api.nvim_get_hl(0, { name = "XuePickerHintBind" }).link)
-  eq("FzfLuaHeaderText", api.nvim_get_hl(0, { name = "XuePickerHint" }).link)
-  s.ui.width = 32
+  eq(
+    "  :: <Z> to custom|<alt-j> to more🌟|<z> to custom",
+    api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1]
+  )
+  eq(
+    { ":: ", "<", "> to ", "|", "<", "> to ", "|", "<", "> to " },
+    vim.tbl_map(function(span)
+      return span.text
+    end, highlighted(s, "XuePickerHintSeparator", "hint"))
+  )
+  s.ui.width = 22
   s.ui:render()
-  eq(":: <Z> to custom|<alt-j> to more🌟", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  eq("  :: <Z> to custom|··", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   eq({ "Z", "z" }, s.keys.custom)
   for _, name in ipairs({ "accept", "close", "next", "previous", "preview", "refresh" }) do
     assert(s.keys[name] and #s.keys[name] > 0, name .. " shortcut must remain active")
   end
+end)
+test("hint clipping preserves Unicode and the colors under fzf ellipsis cells", function()
+  local hints = require("xue-picker.hints")
+  local state = { opts = {}, keys = { split = { "<C-s>" }, vsplit = { "<C-v>" }, toggle = { "<C-x>" } } }
+  local text, spans = hints.render(state, 32)
+  eq("  :: <ctrl-s> to split|<ctrl-··", text)
+  eq("XuePickerHintBind", spans[#spans - 1][3])
+  eq("XuePickerHintSeparator", spans[#spans][3])
+  state.keys = { ["more🌟"] = { "<M-j>", "z" } }
+  text, spans = hints.render(state, 24)
+  eq("  :: <alt-j> to more··", text)
+  eq("XuePickerHint", spans[#spans - 1][3])
+  eq("XuePickerHintSeparator", spans[#spans][3])
+  state.keys = { ["café é🌟"] = { "z", "<M-j>" } }
+  for width = 1, 60 do
+    text, spans = hints.render(state, width)
+    assert(vim.fn.strdisplaywidth(text) <= math.max(0, width - 1), text)
+    eq(text, vim.fn.iconv(text, "utf-8", "utf-8"))
+    for _, span in ipairs(spans) do
+      assert(span[1] < span[2] and span[2] <= #text)
+      eq(text:sub(span[1] + 1, span[2]), vim.fn.iconv(text:sub(span[1] + 1, span[2]), "utf-8", "utf-8"))
+    end
+  end
+  eq("", hints.render({ opts = {}, keys = {} }, 32))
+  eq(
+    "  :: <ctrl-d> to close",
+    hints.render({ opts = { name = "buffers" }, keys = { delete = { "<C-d>" } } }, 80)
+  )
+end)
+test("hint defaults match fzf-lua dark and light colors without loading fzf-lua", function()
+  local background = vim.o.background
+  for _, name in ipairs({ "FzfLuaHeaderBind", "FzfLuaHeaderText", "FzfLuaFzfHeader" }) do
+    api.nvim_set_hl(0, name, {})
+  end
+  for _, case in ipairs({ { "dark", "BlanchedAlmond", "Brown1" }, { "light", "MediumSpringGreen", "Brown4" } }) do
+    vim.o.background = case[1]
+    local s = ready(picker.pick(opts({ items = { "one" } })))
+    eq(
+      api.nvim_get_color_by_name(case[2]),
+      api.nvim_get_hl(0, { name = "XuePickerHintBind", link = false }).fg
+    )
+    eq(api.nvim_get_color_by_name(case[3]), api.nvim_get_hl(0, { name = "XuePickerHint", link = false }).fg)
+    s:close()
+  end
+  vim.o.background = background
+  api.nvim_set_hl(0, "FzfLuaHeaderBind", { fg = "#123456", bold = true })
+  api.nvim_set_hl(0, "FzfLuaHeaderText", { fg = "#abcdef" })
+  api.nvim_set_hl(0, "FzfLuaFzfHeader", { fg = "#654321" })
+  local s = ready(picker.pick(opts({ items = { "one" } })))
+  for name, target in pairs({
+    XuePickerHintBind = "FzfLuaHeaderBind",
+    XuePickerHint = "FzfLuaHeaderText",
+    XuePickerHintSeparator = "FzfLuaFzfHeader",
+  }) do
+    eq(target, api.nvim_get_hl(0, { name = name }).link)
+  end
+  api.nvim_set_hl(0, "XuePickerHintBind", { fg = "#fedcba" })
+  s.ui.highlights(s.opts)
+  eq(0xfedcba, api.nvim_get_hl(0, { name = "XuePickerHintBind" }).fg)
+  s:close()
+  s = ready(picker.pick(opts({ highlights = { XuePickerHint = { fg = "#345678" } } })))
+  eq(0x345678, api.nvim_get_hl(0, { name = "XuePickerHint" }).fg)
+  s:close()
+  vim.cmd("colorscheme default")
 end)
 test("error hints show the message while recovery shortcuts remain active and hidden", function()
   local s = ready(picker.pick(opts({ items = { "foo" } })))
@@ -565,7 +637,7 @@ test("error hints show the message while recovery shortcuts remain active and hi
   eq({}, highlighted(s, "XuePickerHintBind", "hint"))
   eq({}, highlighted(s, "XuePickerHint", "hint"))
   eq({ { text = "Error↵retry failed", priority = 150 } }, highlighted(s, "XuePickerError", "hint"))
-  eq(":: Error↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  eq("  :: Error↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   assert(#s.keys.close > 0 and #s.keys.refresh > 0)
 end)
 test("custom actions and local keymaps are cleaned", function()

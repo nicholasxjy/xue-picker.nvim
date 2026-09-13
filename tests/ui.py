@@ -202,11 +202,79 @@ def check_lualine(nvim):
     print("Attached lualine: native extension, global/per-window modes, live counts, selection, replacement, resume and restoration OK")
 
 
+def check_fzf_hints(nvim):
+    path = os.environ.get("XUE_FZF_LUA")
+    if not path:
+        return
+    colors = {}
+
+    def cells():
+        row = nvim.exec_lua("""
+          vim.cmd('redraw')
+          for row=1,vim.o.lines do
+            local text,cells='',{}
+            for col=1,vim.o.columns do
+              local char=vim.fn.screenstring(row,col)
+              text=text..char
+              cells[#cells+1]={char,vim.fn.screenattr(row,col)}
+            end
+            if text:find('::',1,true) then return cells end
+          end
+        """)
+        assert row, "hint row missing"
+        # RGB definitions come from the attached UI; terminal and buffer highlight
+        # IDs can differ even when their rendered attributes are identical.
+        while nvim._session._pending_messages:
+            message = nvim.next_message()
+            if message.name == "redraw":
+                for event in message.args:
+                    if event[0] == "hl_attr_define":
+                        for definition in event[1:]:
+                            colors[definition[0]] = definition[1]
+        return [[char, colors[attr] if attr else {}] for char, attr in row]
+
+    nvim.exec_lua("vim.opt.rtp:append(...); saved_hint_env={vim.env.NO_COLOR,vim.o.background}; vim.env.NO_COLOR=nil; vim.o.termguicolors=true", path)
+    for background in ("dark", "light"):
+        nvim.exec_lua("""
+          vim.o.background=...
+          require('fzf-lua').setup({winopts={height=0.5,width=1,row=1,col=0,border='none',preview={hidden=true}},fzf_colors=true})
+          require('fzf-lua').setup_highlights(true)
+        """, background)
+        for width in (120, 50, 32, 24, 25, 26):
+            nvim.ui_try_resize(width, 40)
+            nvim.exec_lua("""
+              local noop=function() end
+              require('fzf-lua').fzf_exec({'alpha','beta'},{previewer=false,
+                actions={['ctrl-s']={fn=noop,header='split'},['ctrl-v']={fn=noop,header='vsplit'},
+                  ['ctrl-x']={fn=noop,header='select'},['alt-j']={fn=noop,header='more🌟'},z={fn=noop,header='more🌟'}},
+                fzf_opts={['--layout']='reverse',['--info']='inline-right',['--border']='none'}})
+            """)
+            wait(nvim, "vim.bo.filetype=='fzf' and vim.fn.mode()=='t'")
+            # fzf writes its terminal grid asynchronously.
+            wait(nvim, "table.concat(vim.api.nvim_buf_get_lines(0,0,-1,false),' '):find('::',1,true)~=nil")
+            expected = cells()
+            nvim.input("<Esc>")
+            wait(nvim, "vim.bo.filetype~='fzf'")
+            nvim.exec_lua("""
+              local noop=function() end
+              s=require('xue-picker').pick({items={'alpha','beta'},
+                actions={split=noop,vsplit=noop,toggle=noop,['more🌟']=noop},keymaps={['more🌟']={'<M-j>','z'}}})
+            """)
+            wait(nvim, "s.started and not s.loading and not s.searching and not s.render_timer")
+            actual = cells()
+            assert actual == expected, (background, width, [(i + 1, a, b) for i, (a, b) in enumerate(zip(actual, expected)) if a != b])
+            snapshot(nvim, f"ui-hints-{background}-{width}")
+            nvim.exec_lua("s:close()")
+    nvim.exec_lua("vim.env.NO_COLOR=saved_hint_env[1]; vim.o.background=saved_hint_env[2]")
+    nvim.ui_try_resize(120, 40)
+    print("Attached fzf-lua: hint text and RGB attributes match cell-for-cell in dark/light backgrounds at 120/50/32/24/25/26 columns")
+
+
 def run():
     faulthandler.dump_traceback_later(20, exit=True)
     nvim = pynvim.attach("child", argv=[os.environ.get("NVIM", "nvim"), "--embed", "-u", "NONE", "-i", "NONE", "--noplugin"])
     try:
-        nvim.ui_attach(120, 40, rgb=True)
+        nvim.ui_attach(120, 40, rgb=True, ext_linegrid=True)
         nvim.exec_lua("vim.opt.rtp:prepend(...)", str(ROOT))
         nvim.command("runtime plugin/xue-picker.lua")
         nvim.exec_lua("vim.o.cmdheight=0; vim.o.swapfile=false; vim.g.xue_origin=vim.api.nvim_get_current_win()")
@@ -349,6 +417,7 @@ def run():
         wait(nvim, "vim.fn.getcmdtype()==':' and vim.fn.getcmdline()==history_text")
         assert nvim.exec_lua("return vim.g.xue_executed==nil")
         nvim.input("<Esc>")
+        check_fzf_hints(nvim)
         check_lualine(nvim)
         messages = nvim.command_output("messages")
         assert "Error" not in messages and "E5108" not in messages, messages

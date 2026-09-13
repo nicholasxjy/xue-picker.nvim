@@ -2,6 +2,7 @@ local api, U = vim.api, require("xue-picker.util")
 local M = {}
 local ns = api.nvim_create_namespace("XuePicker")
 function M.highlights(opts)
+  require("xue-picker.hints").highlights()
   for name, def in pairs(require("xue-picker.config").defaults.highlights) do
     api.nvim_set_hl(0, name, def)
   end
@@ -211,19 +212,6 @@ local function path_spans(text, offset, spans, directory_group)
   end
   -- Filename styling sits below search matches and above the selected row.
   spans[#spans + 1] = { offset + #directory, offset + #text, "XuePickerFilename", 100 }
-end
-local function hint_key(key)
-  local special = key:match("^<([^<>]+)>$")
-  if special then
-    special = special:lower()
-    local aliases = { cr = "enter", bs = "backspace", del = "delete" }
-    local modifiers = { c = "ctrl", a = "alt", m = "alt", s = "shift" }
-    key = aliases[special]
-      or special:gsub("([cams])%-", function(modifier)
-        return modifiers[modifier] .. "-"
-      end)
-  end
-  return "<" .. U.clean(key) .. ">"
 end
 function M:format(item, index)
   local s, opts = self.session, self.session.opts
@@ -477,69 +465,7 @@ function M:render()
     require("xue-picker.statusline").update()
     return
   end
-  local labels = {
-    accept = false,
-    close = false,
-    next = false,
-    previous = false,
-    toggle = "select",
-    preview = false,
-    refresh = false,
-    delete = "delete",
-    split = "split",
-    vsplit = "vsplit",
-    tab = "tab",
-    toggle_all = "select all",
-  }
-  local names = {
-    "toggle",
-    "delete",
-    "split",
-    "vsplit",
-    "tab",
-    "toggle_all",
-  }
-  for _, name in ipairs(vim.fn.sort(vim.tbl_keys(s.keys))) do
-    if labels[name] == nil then
-      names[#names + 1] = name
-    end
-  end
-  if s.error then
-    names = {}
-  end
-  local function hints(first_only)
-    local text, spans = "", {}
-    local function add(value, group)
-      spans[#spans + 1] = { #text, #text + #value, group }
-      text = text .. value
-    end
-    for _, name in ipairs(names) do
-      local keys = s.keys[name]
-      if keys and #keys > 0 then
-        add(text == "" and ":: " or "|", "XuePickerHintSeparator")
-        for i, key in ipairs(keys) do
-          if i > 1 then
-            if first_only then
-              break
-            end
-            add("/", "XuePickerHintSeparator")
-          end
-          add(hint_key(key), "XuePickerHintBind")
-        end
-        add(" to ", "XuePickerHintSeparator")
-        add(U.clean(labels[name] or name), "XuePickerHint")
-      end
-    end
-    if s.error then
-      add(text == "" and ":: " or "|", "XuePickerHintSeparator")
-      add(U.clean(s.error), "XuePickerError")
-    end
-    return text, spans
-  end
-  local hint, hint_spans = hints(false)
-  if vim.fn.strdisplaywidth(hint) > self.width then
-    hint, hint_spans = hints(true)
-  end
+  local hint, hint_spans = require("xue-picker.hints").render(s, self.width)
   api.nvim_buf_set_lines(self.bufs.hint, 0, -1, false, { hint })
   api.nvim_buf_clear_namespace(self.bufs.hint, ns, 0, -1)
   for _, span in ipairs(hint_spans) do

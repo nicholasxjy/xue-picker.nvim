@@ -2,6 +2,7 @@ local api, U = vim.api, require("xue-picker.util")
 local M = {}
 local ns = api.nvim_create_namespace("XuePicker")
 function M.highlights(opts)
+  require("xue-picker.gutter").highlights()
   require("xue-picker.hints").highlights()
   require("xue-picker.buffers").highlights()
   for name, def in pairs(require("xue-picker.config").defaults.highlights) do
@@ -218,8 +219,22 @@ end
 function M:format(item, index)
   local s, opts = self.session, self.session.opts
   if opts.format then
-    local value, spans = opts.format(item, { width = self.list_width, index = index, session = s })
-    return U.clean(value), spans or {}
+    local prefix, spans = require("xue-picker.gutter").render(
+      opts,
+      index == s.index,
+      s.selected[item.id],
+      opts.name == "buffers" and "XuePickerBuffer" or nil,
+      item == s.buffer_header
+    )
+    local value, marks = opts.format(item, {
+      width = math.max(0, self.list_width - vim.fn.strdisplaywidth(prefix)),
+      index = index,
+      session = s,
+    })
+    for _, mark in ipairs(marks or {}) do
+      spans[#spans + 1] = { #prefix + mark[1], #prefix + mark[2], mark[3], mark[4] }
+    end
+    return prefix .. U.clean(value), spans
   end
   if opts.name == "buffers" then
     return require("xue-picker.buffers").format(
@@ -232,14 +247,11 @@ function M:format(item, index)
     )
   end
   local grep = opts.name == "live_grep"
-  local prefix = (index == s.index and opts.pointer or " ")
-    .. " "
-    .. (s.selected[item.id] and opts.marker or " ")
-    .. " "
   if opts.name == "diagnostics" then
-    return require("xue-picker.diagnostics").format(item, s, self.list_width, prefix, icon(item, opts))
+    return require("xue-picker.diagnostics").format(item, s, self.list_width, icon(item, opts))
   end
-  local text, map, spans, right_directory = "", {}, {}, nil
+  local prefix, spans = require("xue-picker.gutter").render(opts, index == s.index, s.selected[item.id])
+  local text, map, right_directory = "", {}, nil
   if grep and item.lnum then
     local line = ("%" .. (self.line_width or 1) .. "d"):format(item.lnum)
     local column = ("%" .. (self.column_width or 1) .. "d"):format((item.col or 0) + 1)
@@ -372,7 +384,7 @@ function M:render()
           grep and type(s.opts.path_format) == "function" and s.opts.path_format(item, s.opts.cwd)
             or U.relative(item.path or "", s.opts.cwd)
         )
-        local prefix, spans = "  ", {}
+        local prefix, spans = require("xue-picker.gutter").render(s.opts, false, false, nil, true)
         if grep then
           local icon_text, icon_group = icon(item, s.opts)
           if #icon_text > 0 then

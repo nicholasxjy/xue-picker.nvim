@@ -84,6 +84,71 @@ test("nested merge, list replacement and precedence", function()
   eq(9, config.preview.max_bytes)
   eq({}, config.scan.args)
 end)
+test("every builtin and vim.ui picker uses the shared leading gutter", function()
+  local function check(s)
+    ready(s)
+    local prefix = s.opts.name == "buffers" and "XuePickerBuffer" or "XuePicker"
+    eq({ { text = "▌", priority = 150 } }, highlighted(s, prefix .. "Pointer"))
+    assert(#highlighted(s, prefix .. "Gutter") > 0, s.opts.name)
+    if s.actions.toggle then
+      s:act("toggle")
+      eq({ { text = "┃", priority = 150 } }, highlighted(s, prefix .. "Marker"))
+    end
+    s:move(1)
+    eq(2, s.index)
+    eq({ { text = "▌", priority = 150 } }, highlighted(s, prefix .. "Pointer"))
+    s:close()
+  end
+  for _, name in ipairs(B.names) do
+    local items = {}
+    for i, text in ipairs({ "alpha", "beta", "gamma" }) do
+      items[i] = {
+        id = tostring(i),
+        text = text,
+        path = fixture .. "/src/alpha.lua",
+        bufnr = api.nvim_get_current_buf(),
+        lnum = i,
+        col = 0,
+        severity = 1,
+      }
+    end
+    check(B[name](opts({
+      icons = false,
+      multiline = false,
+      layout = { height = 10 },
+      source = function(_, emit)
+        emit(items, { replace = true, done = true })
+      end,
+    })))
+  end
+  check(picker.pick(opts({ items = { "alpha", "beta", "gamma" }, multiselect = true })))
+  check(B.ui_select({ "alpha", "beta", "gamma" }, opts(), function() end))
+  check(B.ui_input(opts({ completion = "file", default = fixture .. "/" }), function() end))
+end)
+test("custom formatters retain byte highlights behind the configurable gutter", function()
+  picker.setup({ defaults = { pointer = "▶", gutter = "·", marker = "✓" } })
+  eq("▶", C.resolve("buffers", {}).pointer)
+  local marks = { { 0, #"🌟", "Search", 180 } }
+  local s = ready(picker.pick(opts({
+    items = { "one", "two" },
+    multiselect = true,
+    highlights = { XuePickerPointer = { fg = "#123456" }, XuePickerGutter = { fg = "#abcdef" } },
+    format = function(item, ctx)
+      eq(ctx.session.ui.list_width - 2, ctx.width)
+      return "🌟" .. item.text, marks
+    end,
+  })))
+  eq({ { text = "▶", priority = 150 } }, highlighted(s, "XuePickerPointer"))
+  eq({ { text = "·", priority = 150 } }, highlighted(s, "XuePickerGutter"))
+  eq({ { text = "🌟", priority = 180 }, { text = "🌟", priority = 180 } }, highlighted(s, "Search"))
+  eq({ { 0, #"🌟", "Search", 180 } }, marks)
+  eq(0x123456, api.nvim_get_hl(0, { name = "XuePickerPointer" }).fg)
+  eq(0xabcdef, api.nvim_get_hl(0, { name = "XuePickerGutter" }).fg)
+  s:act("toggle")
+  eq({ { text = "✓", priority = 150 } }, highlighted(s, "XuePickerMarker"))
+  s:close()
+  vim.cmd("colorscheme default")
+end)
 test("statusline state follows async results, selection, refresh and close", function()
   eq(nil, picker.status())
   eq("", picker.statusline())
@@ -292,7 +357,7 @@ test("files and smart align directories to the longest visible row independently
     })))
     s.git_status[item.path] = " M"
     local directory = "dir🌍⇥/"
-    local longest_width = vim.fn.strdisplaywidth("    📄 b.lua  " .. second_directory)
+    local longest_width = vim.fn.strdisplaywidth("▌ 📄 b.lua  " .. second_directory)
     local baseline
     for _, width in ipairs({ 120, 60, 32, 8 }) do
       s.ui.list_width = width
@@ -321,7 +386,7 @@ test("files and smart align directories to the longest visible row independently
     s:set_query("alpha")
     ready(s).ui:render()
     local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
-    eq("▸   📄 alpha.lua  +   M  " .. directory, line)
+    eq("▌ 📄 alpha.lua  +   M  " .. directory, line)
     s.opts.path_format = "relative"
     s.ui:render()
     line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
@@ -410,10 +475,10 @@ test("live_grep renders header icons and leading aligned locations with accurate
   eq({ { text = "◆ ", priority = 150 }, { text = "◆ ", priority = 150 } }, highlighted(s, "Special"))
   local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 5, false)
   eq("  ◆ src/alpha.lua", lines[1])
-  eq("▸   " .. "  2:  9  " .. U.clean(items[1].text), lines[2])
-  eq("    " .. " 24: 10  " .. items[2].text, lines[3])
+  eq("▌ " .. "  2:  9  " .. U.clean(items[1].text), lines[2])
+  eq("▌ " .. " 24: 10  " .. items[2].text, lines[3])
   eq("  ◆ z.txt", lines[4])
-  eq("    " .. "300:120  " .. items[3].text, lines[5])
+  eq("▌ " .. "300:120  " .. items[3].text, lines[5])
   eq(
     { { text = "  2", priority = 150 }, { text = " 24", priority = 150 }, { text = "300", priority = 150 } },
     highlighted(s, "XuePickerLineNr")
@@ -1005,9 +1070,9 @@ test("diagnostics match fzf-lua signs, source, location, message and code highli
   local s = ready(B.diagnostics(opts({ bufnr = buf, query = "café" })))
   s.ui:render()
   eq({
-    "▸   🛑 [lua_ls] alpha.lua src:1:7:",
-    "         bad café⇥value",
-    "    next line [E001]",
+    "▌ 🛑 [lua_ls] alpha.lua src:1:7:",
+    "▌      bad café⇥value",
+    "▌ next line [E001]",
     "",
   }, api.nvim_buf_get_lines(s.ui.bufs.list, 0, 4, false))
   eq(
@@ -1027,6 +1092,9 @@ test("diagnostics match fzf-lua signs, source, location, message and code highli
     end
   end
   eq({ 0, 1, 2 }, selected)
+  eq(3, #highlighted(s, "XuePickerPointer"))
+  s:act("toggle")
+  eq({ { text = "┃", priority = 150 } }, highlighted(s, "XuePickerMarker"))
   for _, level in ipairs({ "Error", "Warn", "Info", "Hint" }) do
     eq("DiagnosticSign" .. level, api.nvim_get_hl(0, { name = "XuePickerDiagnostic" .. level }).link)
   end
@@ -1046,7 +1114,7 @@ test("diagnostics match fzf-lua signs, source, location, message and code highli
   )
   s.ui:render()
   eq(
-    "▸   E [lua_ls] src/alpha.lua:1:7: bad café⇥value [E001]",
+    "▌ E [lua_ls] src/alpha.lua:1:7: bad café⇥value [E001]",
     api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
   )
   eq({

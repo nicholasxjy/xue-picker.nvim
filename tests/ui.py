@@ -56,6 +56,35 @@ def check_directory_alignment(nvim):
     """)
 
 
+def check_gutter(nvim):
+    nvim.exec_lua("""
+      local items={}
+      for i=1,20 do items[i]=('item%02d'):format(i) end
+      s=require('xue-picker').pick({items=items,sort=false,multiselect=true,icons=false,layout={height=6}})
+    """)
+    wait(nvim, "s.started and not s.loading and not s.searching and vim.fn.mode()=='i'")
+    nvim.input("<C-x>" + "<C-n>" * 8)
+    wait(nvim, "s.index==9 and s.offset>1 and not s.render_timer")
+    nvim.exec_lua("""
+      vim.cmd('redraw')
+      local pos=vim.api.nvim_win_get_position(s.ui.wins.list)
+      local row=pos[1]+s.index-s.offset+1
+      assert(vim.fn.screenstring(row,pos[2]+1)=='▌')
+      assert(vim.fn.screenattr(row,pos[2]+1)~=vim.fn.screenattr(pos[1]+1,pos[2]+1))
+      assert(vim.api.nvim_buf_get_lines(s.ui.bufs.list,s.index-s.offset,s.index-s.offset+1,false)[1]:find('item09',1,true))
+      s:move(-8)
+    """)
+    wait(nvim, "s.index==1 and s.offset==1 and not s.render_timer")
+    nvim.exec_lua("""
+      vim.cmd('redraw')
+      local pos=vim.api.nvim_win_get_position(s.ui.wins.list)
+      assert(vim.fn.screenstring(pos[1]+1,pos[2]+1)=='▌')
+      assert(vim.fn.screenstring(pos[1]+1,pos[2]+2)=='┃')
+    """)
+    snapshot(nvim, "ui-gutter-selection")
+    nvim.exec_lua("s:close()")
+
+
 def check_input_position(nvim, query, byte_col=None):
     byte_col = len(query.encode()) if byte_col is None else byte_col
     wait(nvim, "s.started and not s.render_timer and vim.fn.mode()=='i'")
@@ -278,6 +307,7 @@ def run():
         nvim.exec_lua("vim.opt.rtp:prepend(...)", str(ROOT))
         nvim.command("runtime plugin/xue-picker.lua")
         nvim.exec_lua("vim.o.cmdheight=0; vim.o.swapfile=false; vim.g.xue_origin=vim.api.nvim_get_current_win()")
+        check_gutter(nvim)
         check_statusline(nvim)
         check_input_editing(nvim)
         nvim.exec_lua("s=require('xue-picker.builtin').files({cwd=..., git={enabled=false}})", str(ROOT))
@@ -333,7 +363,7 @@ def run():
           s.ui:render()
           local lines=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,2,false)
           assert(lines[1]=='  ◆ '..require('xue-picker.util').relative(s.results[1].path,s.opts.cwd))
-          assert(lines[2]:match('^▸%s+%d+:%s*%d+  '))
+          assert(lines[2]:match('^▌%s+%d+:%s*%d+  '))
           assert(not lines[2]:find('◆',1,true))
         """)
         for _ in range(22):
@@ -373,11 +403,14 @@ def run():
             nvim.exec_lua(r"""
               local lines=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,-1,false)
               for _,line in ipairs(lines) do assert(vim.fn.strdisplaywidth(line)<=s.ui.list_width) end
-              assert(table.concat(lines,'\n'):find('['..s.results[s.index].code..']',1,true))
-              local selected=false
+              local selected,codes=false,{}
               for _,mark in ipairs(vim.api.nvim_buf_get_extmarks(s.ui.bufs.list,-1,0,-1,{details=true})) do
                 if mark[4].line_hl_group=='XuePickerSelected' then selected=true end
+                if mark[4].hl_group=='XuePickerDiagnosticCode' then
+                  codes[#codes+1]=lines[mark[2]+1]:sub(mark[3]+1,mark[4].end_col)
+                end
               end
+              assert(table.concat(codes):find('['..s.results[s.index].code..']',1,true))
               assert(selected)
             """)
         nvim.exec_lua("diagnostic_target=s.results[s.index]")

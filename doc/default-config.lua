@@ -14,6 +14,7 @@ require("xue-picker").setup({
       enabled = true,
       modified_bonus = false,
     },
+    gutter = "▌",
     highlights = {
       XuePickerBorder = {
         default = true,
@@ -115,6 +116,10 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaHeaderText",
       },
+      XuePickerGutter = {
+        default = true,
+        fg = "bg",
+      },
       XuePickerHint = {
         default = true,
         link = "FzfLuaHeaderText",
@@ -151,6 +156,10 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaNormal",
       },
+      XuePickerPointer = {
+        default = true,
+        link = "FzfLuaFzfPointer",
+      },
       XuePickerPreviewLine = {
         default = true,
         link = "FzfLuaCursorLine",
@@ -166,6 +175,10 @@ require("xue-picker").setup({
       XuePickerSelected = {
         default = true,
         link = "FzfLuaFzfCursorLine",
+      },
+      XuePickerStrong = {
+        bold = true,
+        default = true,
       },
     },
     hint = true,
@@ -191,7 +204,7 @@ require("xue-picker").setup({
       preview_width = 0.5,
       wide = 100,
     },
-    marker = "●",
+    marker = "┃",
     matcher = {
       cwd_bonus = true,
       filename_bonus = true,
@@ -208,7 +221,7 @@ require("xue-picker").setup({
       render_ms = 16,
       slice_ms = 4,
     },
-    pointer = "▸",
+    pointer = "▌",
     preview = {
       debounce_ms = 60,
       enabled = false,
@@ -234,11 +247,8 @@ require("xue-picker").setup({
       git = {
         enabled = false,
       },
-      gutter = "▌",
       ignore_current_buffer = false,
-      marker = "┃",
       path_format = "relative",
-      pointer = "▌",
       prompt = "Buffers> ",
       show_unlisted = false,
       show_unloaded = true,

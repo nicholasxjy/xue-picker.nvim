@@ -79,6 +79,14 @@ Diagnostic rows follow fzf-lua: a severity sign, `[source]`, and `file:line:colu
 
 Signs come from `vim.diagnostic.config().signs.text`, with E/W/I/H fallbacks. As in fzf-lua, `diag_icons=false` uses those letters; a severity-indexed `diag_icons` table overrides the symbols. `signs.Error/Warn/Info/Hint={text=..., texthl=...}` provides per-level overrides. `diag_source`, `diag_code`, `color_icons`, and `color_headings` default to true. File icons and Git status are disabled for diagnostics by default. Source labels and unformatted paths use severity colors; filename/directory formatting and line/column highlights use the same groups as fzf-lua.
 
+Every picker result list uses the buffer-style leading indicator: `▌` marks the
+current row and `┃` marks a selected item. The inactive bar uses the background
+color. Wrapped diagnostic rows keep the bar aligned; group headings, fixed
+headers, and spacer rows leave that column blank. Set `defaults.pointer`,
+`defaults.gutter`, and `defaults.marker` to customize the symbols globally, or
+override them per picker/call. Custom formatters receive the width available
+after this column and return text/highlight offsets relative to their content.
+
 ## Buffer Layout
 
 Buffer rows follow [fzf-lua's buffer renderer](https://github.com/ibhagwan/fzf-lua/blob/32bfd06486da508ac6ea87804370d6ffc27c4e24/lua/fzf-lua/providers/buffers.lua#L169). Buffer numbers align across the candidate list. Flags use `%` for current, `#` for alternate, `a` for visible/loaded, `h` for hidden, `=` for read-only, and `+` for modified. Names and URI labels retain their original spelling; unnamed buffers show `[No Name]`. File paths include the saved line number and optional file icon. Terminal buffers use their terminal title.
@@ -214,7 +222,10 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerLineNr` | `FzfLuaPathLineNr` |
 | `XuePickerColNr` | `FzfLuaPathColNr` |
 | `XuePickerSelected` | `FzfLuaFzfCursorLine` |
+| `XuePickerPointer` | `FzfLuaFzfPointer` |
 | `XuePickerMarker` | `FzfLuaFzfMarker` |
+| `XuePickerGutter` | Foreground from `FzfLuaFzfGutter`'s background, falling back to `Normal`'s background |
+| `XuePickerStrong` | Bold current-row indicator |
 | `XuePickerHint` | `FzfLuaHeaderText` |
 | `XuePickerHintBind` | `FzfLuaHeaderBind` |
 | `XuePickerHintSeparator` | `FzfLuaFzfHeader` |

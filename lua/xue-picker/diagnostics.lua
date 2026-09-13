@@ -51,19 +51,23 @@ local function sign(item, opts)
 end
 
 -- Each row carries its own byte spans, so wrapping never splits UTF-8 highlights.
-function M.format(item, session, width, prefix, file_icon, file_icon_group)
+function M.format(item, session, width, file_icon, file_icon_group)
   local opts = session.opts
-  local gutter = string.rep(" ", vim.fn.strdisplaywidth(prefix))
-  local rows = { { text = prefix, spans = {} } }
+  local G = require("xue-picker.gutter")
+  local current = session.results[session.index] == item
+  local prefix, spans = G.render(opts, current, session.selected[item.id])
+  local gutter_width = vim.fn.strdisplaywidth(prefix)
+  local rows = { { text = prefix, spans = spans } }
   local row, columns = rows[1], vim.fn.strdisplaywidth(prefix)
   local function newline()
-    row = { text = gutter, spans = {} }
-    rows[#rows + 1], columns = row, #gutter
+    local gutter, marks = G.render(opts, current, false)
+    row = { text = gutter, spans = marks }
+    rows[#rows + 1], columns = row, gutter_width
   end
   local function put(value, group, priority)
     for char in U.clean(value):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
       local size = vim.fn.strdisplaywidth(char)
-      if columns + size > width and columns > #gutter then
+      if columns + size > width and columns > gutter_width then
         newline()
       end
       local start = #row.text

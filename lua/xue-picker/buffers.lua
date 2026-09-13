@@ -1,4 +1,4 @@
-local api, U = vim.api, require("xue-picker.util")
+local U = require("xue-picker.util")
 local M = {}
 local space = " " -- fzf-lua's U+2002 field separator.
 
@@ -10,21 +10,12 @@ function M.highlights()
     XuePickerBufferAlternate = { fg = light and "CadetBlue4" or "CadetBlue1" },
     XuePickerBufferLineNr = { fg = light and "MediumSpringGreen" or "LightGreen" },
     XuePickerBufferHeader = { link = "Normal" },
-    XuePickerBufferSelected = { link = "CursorLine" },
     XuePickerBufferMatch = { link = "Special" },
-    XuePickerBufferPointer = { link = "Special" },
-    XuePickerBufferMarker = { link = "Special" },
   }
   for name, fallback in pairs(defaults) do
     require("xue-picker.highlights").default(name, fallback)
   end
-  local gutter = api.nvim_get_hl(0, { name = "FzfLuaFzfGutter", link = false, create = false })
-  local normal = api.nvim_get_hl(0, { name = "Normal", link = false })
-  require("xue-picker.highlights").default(
-    "XuePickerBufferGutter",
-    { fg = gutter.bg or normal.bg or "bg" },
-    {}
-  )
+  require("xue-picker.gutter").highlights("XuePickerBuffer")
 end
 
 function M.source(ctx, emit, opts)
@@ -121,13 +112,10 @@ function M.format(item, s, width, number_width, selected, icon, icon_group)
     end
   end
   local header = item == s.buffer_header
-  add(
-    header and " " or selected and opts.pointer or opts.gutter,
-    not header and (selected and "XuePickerBufferPointer" or "XuePickerBufferGutter") or nil
-  )
-  local pointer_end = #text
   local marked = not header and s.selected[item.id]
-  add(marked and opts.marker or " ", marked and "XuePickerBufferMarker" or nil)
+  local pointer_end
+  text, spans, pointer_end =
+    require("xue-picker.gutter").render(opts, selected, marked, "XuePickerBuffer", header)
   local gutter_end = #text
   add("[")
   add(item.bufnr, "XuePickerBufferNumber")

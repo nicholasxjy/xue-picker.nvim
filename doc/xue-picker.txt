@@ -38,6 +38,8 @@ API                                                         *xue-picker-api*
         format(item, ctx) -> text, { {start_byte, end_byte, hl_group, priority?}, ... }
         priority defaults to 150.
         Formatting applies only to visible rows; all ranges are [start, end).
+        The picker prepends the leading indicator column. ctx.width is the
+        remaining content width; returned ranges refer to the returned text.
         on_accept(items, action, session) runs after closing and restoring windows.
         on_close(session) runs on close; session.accepted indicates acceptance.
         actions[name](session) defines a custom action; keymaps[name] binds it.
@@ -261,6 +263,18 @@ UI and preview                                               *xue-picker-ui*
     stays on one line; highlight callback byte offsets refer only to the query.
     layout.height=0.4, max_height=18. The full-width bottom panel contains
     input/results/hints.
+    All result lists use the same leading indicator as buffers: pointer="▌",
+    gutter="▌", marker="┃". The current row's bar is highlighted; inactive
+    bars use the background color. Multiselect markers occupy the next column.
+    Wrapped diagnostic rows retain the bar, with the marker only on the first
+    row. Group headings, fixed headers and blank separators have no indicator.
+    Defaults, picker settings and per-call options can override these symbols;
+    wide symbols reserve consistent columns across active and inactive rows.
+    XuePickerPointer links to FzfLuaFzfPointer, falling back to Special.
+    XuePickerGutter uses FzfLuaFzfGutter's background, or Normal's background.
+    XuePickerMarker falls back to Special; XuePickerSelected to CursorLine.
+    XuePickerStrong supplies the current indicator's bold style.
+    Buffers retain their corresponding XuePickerBuffer* highlight overrides.
     preview.enabled=false. Wide layouts place preview beside results; narrow
     layouts stack them. Preview is hidden when there is insufficient space.
     Preview prefers loaded buffers, otherwise reads files asynchronously;
@@ -301,6 +315,7 @@ UI and preview                                               *xue-picker-ui*
         LineNr       -> FzfLuaPathLineNr
         ColNr        -> FzfLuaPathColNr
         Selected     -> FzfLuaFzfCursorLine
+        Pointer      -> FzfLuaFzfPointer
         Marker       -> FzfLuaFzfMarker
         Hint         -> FzfLuaHeaderText
         HintBind     -> FzfLuaHeaderBind

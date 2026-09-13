@@ -1,0 +1,146 @@
+*xue-picker.txt*  底部 picker                                  *xue-picker*
+
+需要 Neovim 0.12+、vim._core.ui2 和 ripgrep。使用附着的 Neovim UI。
+
+命令                                                        *:XuePicker*
+    :XuePicker [name]        默认 smart，支持名称补全。
+    :XuePicker resume        恢复查询、选择、预览，并刷新数据。
+    :checkhealth xue-picker  依赖、原生库及最近回退原因。
+
+API                                                     *xue-picker-api*
+    require("xue-picker").setup(opts)
+        可省略。覆盖顺序：内置 -> defaults -> pickers[name] -> 调用参数。
+        记录逐字段合并，列表整体替换。完整默认值见 doc/default-config.lua。
+
+    require("xue-picker.builtin").NAME(opts)
+        NAME: files, smart, buffers, live_grep, diagnostics, marks,
+              oldfiles, git_files, history, manpages。
+        cwd 默认调用时工作目录；hidden=true、ignore=true、follow=false。
+        文件和位置类结果支持多选；接受多项时写入并打开 quickfix。
+
+    require("xue-picker").pick(opts) -> session
+        opts.items: 候选数组，或 opts.source(ctx, emit): 异步源。
+        候选字段：id（稳定）、text、path、lnum（1-based）、col（0-based 字节）。
+        idx 控制稳定排序；score 由匹配器填写。候选数组不会被深复制。
+        source 返回取消函数；ctx 包含 query/cwd/generation/session。
+        emit(items, state) 默认追加，replace=true 替换，done=true 结束。
+        state.error 显示错误。关闭及过期 generation 的输出会被丢弃。
+        live=true 随查询刷新源，debounce_ms 配置防抖。
+        matcher(query, items, checkpoint) -> 匹配后的候选数组。
+        format(item, ctx) -> text, { {start_byte, end_byte, hl_group}, ... }。
+        格式化仅作用于可见行；所有范围均为 [start, end)。
+        on_accept(items, action, session) 在关闭并恢复窗口后运行。
+        on_close(session) 在关闭时运行；session.accepted 表示已接受。
+        actions[name](session) 提供自定义动作，再用 keymaps[name] 绑定。
+        file_actions=true 启用分屏/预览；multiselect=true 启用多选。
+
+    session:close()          关闭、取消任务、恢复窗口/视图/cmdheight。
+    session:refresh()        重新请求数据。
+    session:set_query(text)  更新输入与匹配；异步源自动取消旧任务。
+    session:get_selection()  多选项数组；未多选时是当前项数组。
+    require("xue-picker").resume()
+        恢复最近可恢复的会话。ui_select/ui_input 不参与 resume。
+
+Builtin                                               *xue-picker-builtin*
+    files: 目录文件，不混入历史。
+    smart: 合并目录、打开和有效最近文件；按绝对路径去重。
+        filter.cwd=true，matcher.frecency=true。
+    buffers: 普通 listed buffers，包含未命名。% 当前、# 备用、+ 修改、RO 只读。
+        delete 默认保护未保存内容；force=true 可强制删除。
+    live_grep: regex/plain，smartcase，按文件分组。见 |xue-picker-grep|。
+    diagnostics: scope="workspace"/"buffer"/"cwd"；bufnr、severity 透传筛选。
+        severity 使用 |vim.diagnostic.get()| 的约定，严重程度优先。
+    marks: 全局及调用 buffer 局部 marks，跳转时展开折叠。
+    oldfiles: 排除失效项；filter.cwd=true 可限制范围。
+    git_files: tracked；untracked=true 加入未跟踪文件。
+    history: type="cmd" 放回命令行编辑；type="search" 重新执行搜索。
+    manpages: 异步 man -k .；通过 :Man 打开。
+
+键位                                                   *xue-picker-keymaps*
+    next       <C-n> <Down> <Tab>    previous    <C-p> <Up> <S-Tab>
+    accept     <CR> <C-y>           close       <Esc> <C-c>
+    split      <C-s>                vsplit      <C-v>
+    tab        <C-t>                toggle      <C-x>
+    toggle_all <C-a>                delete      <C-d>
+    preview    <C-o>                refresh     <C-r>
+
+    字符串或字符串列表；false / {} 禁用。覆盖动作替换它的全部按键。
+    仅在输入 buffer 的插入和普通模式生效，仅绑定当前支持的动作。
+    同动作按键去重，跨动作冲突在打开前报错。提示来自实际映射。
+
+查询                                                     *xue-picker-query*
+    foo bar       AND             foo | bar       OR
+    !test         排除            'foo            精确子串
+    'foo'         完整单词        ^foo / lua$     首尾锚点
+    file:lua$     字段筛选        foo.lua:10:3     文件位置
+
+    默认 smartcase 采用参考实现的 ASCII 大小写规则。
+    匹配与评分按 UTF-8 字节，高亮覆盖完整字符。
+    排序：分数降序、text 字节长度升序、原始 idx 升序。
+    文件名/cwd/frecency 可配置。history_bonus 和 Git 加权默认关闭。
+    frecency 默认半衰期 30 天、最多一万条，延迟原子写入：
+        stdpath("data")/xue-picker/frecency.json
+
+Grep 后端                                                *xue-picker-grep*
+    pickers.live_grep 默认配置：
+        backend="auto", fallback=true, mode="regex", smartcase=true,
+        debounce_ms=80, max_results=20000, max_file_size=10485760,
+        globs={}, ripgrep={cmd="rg", args={}},
+        fff={page_size=256, time_budget_ms=8, ready_timeout_ms=150,
+             request_timeout_ms=1000, idle_timeout_ms=60000}
+
+    auto 优先 fff；不可用、初始化/请求超时、异常时回退到 rg。
+    backend="fff" 也默认允许回退，fallback=false 显示错误并保留面板。
+    backend="ripgrep" 直接使用 rg。回退后当前会话固定使用 rg，下次重新检测。
+    回退替换结果，不拼接；无结果、空查询、取消不会回退。
+    无效 regex 显示错误，不使用 literal fallback。
+
+    fff 为可选依赖；必须提供 content_search()/file_search() 及原生库。
+    同步搜索在独立 headless Neovim worker 内运行，异步 RPC 分页。
+    worker 不加载用户 init 或插件入口，使用独立配置与缓存，闲置时回收。
+    不调用 fff picker UI，不自动安装或编译 fff。
+
+    fff 约束语法可能改变查询含义。空白、git:、! / * ? { }，自定义 glob、
+    非默认扫描范围及 rg 扩展选项转给 rg；禁用 fallback 时明确报错。
+    ripgrep.args 不应覆盖 JSON/模式/输出契约。
+    所有后端输出 1-based 行号、0-based 字节列和 [start,end) 匹配范围。
+
+UI 与预览                                               *xue-picker-ui*
+    layout.height=0.4, max_height=18，底部全宽，输入/结果/提示三段。
+    preview.enabled=false；宽屏左右，窄屏上下，空间不足时隐藏。
+    预览优先读已加载 buffer，否则异步读取文件；默认 1 MiB、2,000 行。
+    二进制/超限显示说明，快速切换丢弃过期结果。
+    performance.slice_ms=4、render_ms=16，preview.debounce_ms=60。
+    cache_dirs=3、cache_entries=200000；重开先显示缓存并重新扫描。
+    icons="auto" 检测 mini.icons / nvim-web-devicons；false 关闭。
+    path_format="filename_first" / "relative" / function(item,cwd)。
+
+    高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Directory、
+    Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
+    链接标准语义组，保留已有设置，响应 ColorScheme。
+    defaults.highlights 可指定完整组名及 nvim_set_hl() 配置。
+
+vim.ui                                                  *xue-picker-vim-ui*
+    builtin.ui_select(items, opts, on_choice)
+        返回原始 item 及 1-based 原索引；取消回调 nil,nil。
+        保留重复值与原始对象，支持 format_item/prompt/preview_item。
+    builtin.ui_input(opts, on_confirm)
+        支持 prompt/default/completion/highlight；接受空字符串与取消 nil 区分。
+        有补全时 Tab 填入当前候选。支持 custom/customlist。
+    两者接受/取消回调均恰好一次。默认不全局替换，显式启用：
+        require("xue-picker").setup({ui={select=true,input=true}})
+
+验证                                                    *xue-picker-testing*
+    make test           独立 Neovim 附着 UI 下的 Lua 集成测试。
+    make lint           StyLua + Lua 语法检查。
+    make differential   固定 241e22c 参考；设置 XUE_REFERENCE 为参考 checkout。
+    make ui             Python/pynvim 附着 UI 与屏幕快照。
+    make perf           固定 2 万/10 万候选匹配基准。
+    make perf-ui        首屏、缓存及真实 2 万文件磁盘基准。
+    可通过 NVIM、STYLUA、PYTHON 覆盖命令路径。
+    fff 故障测试使用受控替身经过真实 worker/RPC；不等于原生库性能实测。
+    详细方法和限制见 doc/performance.md。
+
+MIT。独立实现，以 minibuffer.nvim/xue-2@241e22c 为行为对照。
+
+vim:tw=78:ts=8:noet:ft=help:norl:

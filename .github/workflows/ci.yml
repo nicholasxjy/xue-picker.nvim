@@ -1,0 +1,44 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [stable, nightly]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Neovim and test tools
+        env:
+          NVIM_VERSION: ${{ matrix.neovim }}
+        run: |
+          curl -fLsS "https://github.com/neovim/neovim/releases/download/$NVIM_VERSION/nvim-linux-x86_64.tar.gz" | tar xz -C /tmp
+          echo /tmp/nvim-linux-x86_64/bin >> "$GITHUB_PATH"
+          curl -fLsS https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip -o /tmp/stylua.zip
+          unzip -o /tmp/stylua.zip -d /tmp/stylua-bin
+          chmod +x /tmp/stylua-bin/stylua
+          echo /tmp/stylua-bin >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y ripgrep man-db
+          python3 -m venv /tmp/xue-test-env
+          /tmp/xue-test-env/bin/pip install -r tests/requirements.txt
+      - name: Fixed reference checkout (test oracle only)
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/nicholasxjy/minibuffer.nvim.git .test-data/reference
+          git -C .test-data/reference cat-file -e 241e22ccc870e47c78a07264ee7890d355e37102
+      - run: make lint test differential
+        env:
+          XUE_REFERENCE: ${{ github.workspace }}/.test-data/reference
+      - run: make ui PYTHON=/tmp/xue-test-env/bin/python
+      - run: make perf
+      - name: Upload UI snapshots and benchmark data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ matrix.neovim }}
+          path: |
+            .test-data/*.txt
+            .test-data/*.json

@@ -1,0 +1,64 @@
+{
+  "ui": [
+    {
+      "candidates": 20000,
+      "input_ms": 3.656917005777359,
+      "cold_results_ms": 32.86908400058746,
+      "warm_input_ms": 1.0739579796791077,
+      "warm_first_results_ms": 1.0741249918937683,
+      "warm_refresh_ms": 17.234957993030548
+    },
+    {
+      "candidates": 100000,
+      "input_ms": 1.0670410096645355,
+      "cold_results_ms": 176.78420799970627,
+      "warm_input_ms": 0.8486660122871399,
+      "warm_first_results_ms": 0.8488329946994781,
+      "warm_refresh_ms": 121.8962080180645
+    }
+  ],
+  "grep": [
+    {
+      "query": "needle",
+      "cancel_ms": 1.121541,
+      "count": 20000,
+      "ms": 815.596417,
+      "backend": "ripgrep",
+      "requested": "ripgrep"
+    },
+    {
+      "query": "absent-24122",
+      "cancel_ms": 0.949625,
+      "count": 0,
+      "ms": 126.340125,
+      "backend": "ripgrep",
+      "requested": "ripgrep"
+    },
+    {
+      "query": "needle",
+      "cancel_ms": 0.976833,
+      "fallback": "fff 未安装或未加入 runtimepath",
+      "count": 20000,
+      "ms": 832.985958,
+      "backend": "ripgrep",
+      "requested": "auto"
+    },
+    {
+      "query": "absent-24122",
+      "cancel_ms": 0.961917,
+      "fallback": "fff 未安装或未加入 runtimepath",
+      "count": 0,
+      "ms": 126.491208,
+      "backend": "ripgrep",
+      "requested": "auto"
+    }
+  ],
+  "fixture_creation_ms": 1564.38095800695,
+  "disk": {
+    "files": 20000,
+    "scan_and_rank_ms": 160.0880419909954,
+    "cache_first_results_ms": 1.4675419926643372,
+    "refresh_ms": 261.46062499284744,
+    "input_ms": 1.8380829989910126
+  }
+}

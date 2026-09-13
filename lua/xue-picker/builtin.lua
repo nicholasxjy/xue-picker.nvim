@@ -205,18 +205,7 @@ function M.diagnostics(opts)
             and (o.bufnr == 0 and ctx.session.origin.buf or o.bufnr or ctx.session.origin.buf)
           or nil
         local values = vim.diagnostic.get(buf, { severity = o.severity })
-        table.sort(values, function(a, b)
-          if a.severity ~= b.severity then
-            return a.severity < b.severity
-          end
-          if a.bufnr ~= b.bufnr then
-            return a.bufnr < b.bufnr
-          end
-          if a.lnum ~= b.lnum then
-            return a.lnum < b.lnum
-          end
-          return a.col < b.col
-        end)
+        values = require("xue-picker.diagnostics").sort(values, o)
         local items = {}
         for i, d in ipairs(values) do
           local path = U.path(api.nvim_buf_get_name(d.bufnr))
@@ -230,7 +219,8 @@ function M.diagnostics(opts)
               col = d.col,
               severity = d.severity,
               text = d.message,
-              status = vim.diagnostic.severity[d.severity],
+              source = d.source,
+              code = d.code,
             }
           end
         end

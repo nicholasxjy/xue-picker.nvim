@@ -128,6 +128,47 @@ def run():
         wait(nvim, "s.closed")
         assert len(nvim.funcs.getqflist()) == 2
         nvim.command("cclose")
+        nvim.exec_lua(r"""
+          local root=...
+          diagnostic_ns=vim.api.nvim_create_namespace('xue-ui-diagnostics')
+          diagnostic_buf=vim.api.nvim_create_buf(false,true)
+          vim.api.nvim_buf_set_name(diagnostic_buf, root..'/.test-data/ui-diagnostics.lua')
+          local lines,diagnostics={},{}
+          for i=1,16 do
+            lines[i]='local value'..i..' = '..i
+            diagnostics[i]={lnum=i-1,col=6,severity=(i-1)%4+1,source='lua_ls',code='D'..i,
+              message='Diagnostic café '..i..' with a longer explanation to exercise wrapping.\nExpected a different value.'}
+          end
+          vim.api.nvim_buf_set_lines(diagnostic_buf,0,-1,false,lines)
+          vim.diagnostic.set(diagnostic_ns,diagnostic_buf,diagnostics)
+          s=require('xue-picker.builtin').diagnostics({cwd=root,bufnr=diagnostic_buf,sort='reverse'})
+        """, str(ROOT))
+        wait(nvim, "s.started and not s.loading and not s.searching")
+        lines = snapshot(nvim, "ui-diagnostics")
+        assert any("[lua_ls]" in line for line in lines)
+        assert any("Diagnostic café" in line for line in lines)
+        for _ in range(7):
+            nvim.input("<C-n>")
+        wait(nvim, "s.index==8")
+        for width in (70, 32, 120):
+            nvim.ui_try_resize(width, 40)
+            wait(nvim, f"s.ui.width=={width}")
+            lines = snapshot(nvim, f"ui-diagnostics-{width}")
+            nvim.exec_lua(r"""
+              local lines=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,-1,false)
+              for _,line in ipairs(lines) do assert(vim.fn.strdisplaywidth(line)<=s.ui.list_width) end
+              assert(table.concat(lines,'\n'):find('['..s.results[s.index].code..']',1,true))
+              local selected=false
+              for _,mark in ipairs(vim.api.nvim_buf_get_extmarks(s.ui.bufs.list,-1,0,-1,{details=true})) do
+                if mark[4].line_hl_group=='XuePickerSelected' then selected=true end
+              end
+              assert(selected)
+            """)
+        nvim.exec_lua("diagnostic_target=s.results[s.index]")
+        nvim.input("<CR>")
+        wait(nvim, "s.closed")
+        assert nvim.exec_lua("return vim.api.nvim_get_current_buf()==diagnostic_buf and vim.api.nvim_win_get_cursor(0)[1]==diagnostic_target.lnum")
+        nvim.exec_lua("vim.diagnostic.reset(diagnostic_ns); vim.api.nvim_buf_delete(diagnostic_buf,{force=true})")
         nvim.exec_lua("s=require('xue-picker.builtin').files({cwd=...})", str(ROOT))
         wait(nvim, "s.started")
         nvim.command("tabnew")
@@ -162,7 +203,7 @@ def run():
         nvim.input("<Esc>")
         messages = nvim.command_output("messages")
         assert "Error" not in messages and "E5108" not in messages, messages
-        print("Attached UI: files, input, mappings, preview, resize, grep groups, scroll, quickfix, resume, tabs, callbacks OK")
+        print("Attached UI: files, input, mappings, preview, resize, grep groups, diagnostics, scroll, quickfix, resume, tabs, callbacks OK")
     finally:
         try:
             nvim.command("qa!")

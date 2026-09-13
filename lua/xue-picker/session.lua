@@ -66,7 +66,8 @@ function Session:rank()
     else
       result = self.ranker:rank(query, self.items, checkpoint)
     end
-    if self.opts.sort == false and not self.opts.live then
+    -- Diagnostic sorting belongs to the source; filtering must preserve its order.
+    if (self.opts.sort == false or self.opts.name == "diagnostics") and not self.opts.live then
       local ids, ordered = {}, {}
       for _, item in ipairs(result) do
         ids[item.id] = true

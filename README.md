@@ -36,7 +36,7 @@ With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", opts = {} }`. Ready to use
 | `buffers` | Includes unlisted/unnamed buffers; `%` current, `#` alternate, `+` modified, `RO` read-only; deletion protects unsaved changes by default, explicit `force=true` forces deletion. |
 | `live_grep` | regex, smartcase, grouped by file; `backend`, `mode`, `globs`, and `max_results` are configurable. |
 | `grep_word` | Opens `live_grep` with the word under the cursor and literal matching (`mode="plain"`); inherits `live_grep` settings and accepts its options. |
-| `diagnostics` | Workspace diagnostics, severity-first order, reacts to `DiagnosticChanged`; `scope="buffer"/"cwd"`, `bufnr`, and `severity` follow `vim.diagnostic.get()` semantics. |
+| `diagnostics` | Workspace diagnostics with fzf-lua-style signs, source, location, message, and code; configurable `sort`, reacts to `DiagnosticChanged`; `scope="buffer"/"cwd"`, `bufnr`, and `severity` follow `vim.diagnostic.get()` semantics. |
 | `marks` | Global marks and calling buffer local marks, includes line/column and context, unfolds folds on jump. |
 | `oldfiles` | Valid regular files only, preserves recency order; `filter.cwd=true` restricts to cwd. |
 | `git_files` | Git tracked files; `untracked=true` includes untracked files as well. |
@@ -58,6 +58,26 @@ require("xue-picker.builtin").grep_word({ cwd = "~/project" })
 `cwd` defaults to the working directory at call time. By default, hidden files are included, ignore rules are respected, `.git` contents are excluded, and symlinks are not followed; spaces, newlines, backslashes, and `$` in paths are treated as literal filenames. The UI displays control characters as visible symbols, while file opening and quickfix export preserve the original paths.
 
 `live_grep` displays each file icon beside its filepath header. Each match starts with separate, right-aligned `line:column` fields before the content; both displayed numbers are 1-based. Field widths use the widest numbers in the current results and remain consistent while scrolling. A custom `path_format` callback formats the filepath header.
+
+`diagnostics.sort` controls source ordering and remains in effect while filtering:
+
+| `sort` | Order |
+| --- | --- |
+| `true` or `1` (default) | Error → Warn → Info → Hint, then buffer/line/column. |
+| `"reverse"` or `2` | Hint → Info → Warn → Error, then buffer/line/column. |
+| `false` | Preserve the order returned by `vim.diagnostic.get()`. |
+| `function(diagnostics, opts)` | Return the diagnostic array in the desired order, as in fzf-lua. |
+
+Set it globally under `setup.pickers.diagnostics`, or per call:
+
+```lua
+require("xue-picker.builtin").diagnostics({ sort = "reverse" })
+require("xue-picker.builtin").diagnostics({ sort = false, multiline = false })
+```
+
+Diagnostic rows follow fzf-lua: a severity sign, `[source]`, and `file:line:column:` heading, followed by the message and a `[code]` suffix. `path_format="filename_first"` shows `filename directory:line:column:`. The default `multiline=2` places messages below headings with one blank row between entries; `multiline=true` removes that gap, and `multiline=false` uses a compact row with the first message line. Long rows wrap at the panel width, and selection highlighting covers the entire entry.
+
+Signs come from `vim.diagnostic.config().signs.text`, with E/W/I/H fallbacks. As in fzf-lua, `diag_icons=false` uses those letters; a severity-indexed `diag_icons` table overrides the symbols. `signs.Error/Warn/Info/Hint={text=..., texthl=...}` provides per-level overrides. `diag_source`, `diag_code`, `color_icons`, and `color_headings` default to true. File icons and Git status are disabled for diagnostics by default. Source labels and unformatted paths use severity colors; filename/directory formatting and line/column highlights use the same groups as fzf-lua.
 
 ## Query Syntax and Sorting
 
@@ -112,7 +132,7 @@ Set `defaults.hint = false` to hide the hint bar globally, `pickers.live_grep.hi
 
 Previews are disabled by default: side-by-side on wide screens, stacked on narrow screens, and hidden when space is insufficient. Loaded buffers take priority to show unsaved modifications; on-disk files are read asynchronously, capped at 1 MiB and 2,000 lines by default, centered around the target location. Binary and oversized files display an informational notice.
 
-All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The target groups must be defined by your colorscheme or fzf-lua; the picker does not load fzf-lua automatically. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups.
+All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The target groups must be defined by your colorscheme or fzf-lua; the picker does not load fzf-lua automatically. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups. Diagnostic signs and codes link to the same Neovim groups used by fzf-lua.
 
 | Picker Group | Default Link |
 | --- | --- |
@@ -135,6 +155,11 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerGroup` | `FzfLuaHeaderText` |
 | `XuePickerPreviewLine` | `FzfLuaCursorLine` |
 | `XuePickerBorder` | `FzfLuaBorder` |
+| `XuePickerDiagnosticError` | `DiagnosticSignError` |
+| `XuePickerDiagnosticWarn` | `DiagnosticSignWarn` |
+| `XuePickerDiagnosticInfo` | `DiagnosticSignInfo` |
+| `XuePickerDiagnosticHint` | `DiagnosticSignHint` |
+| `XuePickerDiagnosticCode` | `Comment` |
 
 Override groups using full names and `nvim_set_hl()` definitions:
 

@@ -27,6 +27,26 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaFzfInfo",
       },
+      XuePickerDiagnosticCode = {
+        default = true,
+        link = "Comment",
+      },
+      XuePickerDiagnosticError = {
+        default = true,
+        link = "DiagnosticSignError",
+      },
+      XuePickerDiagnosticHint = {
+        default = true,
+        link = "DiagnosticSignHint",
+      },
+      XuePickerDiagnosticInfo = {
+        default = true,
+        link = "DiagnosticSignInfo",
+      },
+      XuePickerDiagnosticWarn = {
+        default = true,
+        link = "DiagnosticSignWarn",
+      },
       XuePickerDirectory = {
         default = true,
         link = "FzfLuaDirPart",
@@ -156,8 +176,19 @@ require("xue-picker").setup({
       sort = false,
     },
     diagnostics = {
+      color_headings = true,
+      color_icons = true,
+      diag_code = true,
+      diag_icons = true,
+      diag_source = true,
+      git = {
+        enabled = false,
+      },
+      icons = false,
+      multiline = 2,
       scope = "workspace",
-      sort = false,
+      signs = {},
+      sort = true,
     },
     history = {
       sort = false,

@@ -593,6 +593,136 @@ test("diagnostics scopes, severity order and live update", function()
   eq(0, #s.results)
   vim.diagnostic.reset(ns)
 end)
+test("diagnostics sort controls severity, provider and custom order while filtering", function()
+  local buf = vim.fn.bufadd(fixture .. "/src/alpha.lua")
+  vim.fn.bufload(buf)
+  local ns = api.nvim_create_namespace("xue-test-diagnostic-sort")
+  vim.diagnostic.set(ns, buf, {
+    { lnum = 0, col = 0, message = "token", severity = 2 },
+    { lnum = 1, col = 0, message = "long token here", severity = 1 },
+    { lnum = 2, col = 0, message = "token hint", severity = 4 },
+    { lnum = 3, col = 0, message = "token info", severity = 3 },
+  })
+  local function severities(items)
+    return vim.tbl_map(function(item)
+      return item.severity
+    end, items)
+  end
+  local provider = severities(vim.diagnostic.get(buf))
+  for _, case in ipairs({
+    { true, { 1, 2, 3, 4 } },
+    { 1, { 1, 2, 3, 4 } },
+    { false, provider },
+    { "reverse", { 4, 3, 2, 1 } },
+    { 2, { 4, 3, 2, 1 } },
+    { "2", { 4, 3, 2, 1 } },
+    {
+      function(values, config)
+        eq(buf, config.bufnr)
+        table.sort(values, function(a, b)
+          return a.lnum > b.lnum
+        end)
+        return values
+      end,
+      { 3, 4, 1, 2 },
+    },
+  }) do
+    picker.setup({ pickers = { diagnostics = { sort = case[1] } } })
+    local s = ready(B.diagnostics(opts({ bufnr = buf })))
+    eq(case[2], severities(s.results))
+    s:set_query("token")
+    eq(case[2], severities(ready(s).results))
+    s:close()
+  end
+  picker.setup({ pickers = { diagnostics = { sort = false } } })
+  local s = ready(B.diagnostics(opts({ bufnr = buf, sort = true })))
+  eq({ 1, 2, 3, 4 }, severities(s.results))
+  s:close()
+  vim.diagnostic.reset(ns)
+end)
+test("diagnostics match fzf-lua signs, source, location, message and code highlights", function()
+  local buf = vim.fn.bufadd(fixture .. "/src/alpha.lua")
+  vim.fn.bufload(buf)
+  local ns = api.nvim_create_namespace("xue-test-diagnostic-style")
+  local original_signs = vim.diagnostic.config().signs
+  vim.diagnostic.config({ signs = { text = { [1] = "🛑" } } })
+  vim.diagnostic.set(ns, buf, {
+    {
+      lnum = 0,
+      col = 6,
+      message = "  bad café\tvalue\nnext line  ",
+      severity = 1,
+      source = "lua_ls",
+      code = "E001",
+    },
+  })
+  local s = ready(B.diagnostics(opts({ bufnr = buf, query = "café" })))
+  s.ui:render()
+  eq({
+    "▸   🛑 [lua_ls] alpha.lua src:1:7:",
+    "         bad café⇥value",
+    "    next line [E001]",
+    "",
+  }, api.nvim_buf_get_lines(s.ui.bufs.list, 0, 4, false))
+  eq(
+    { { text = "🛑", priority = 150 }, { text = "[lua_ls]", priority = 150 } },
+    highlighted(s, "XuePickerDiagnosticError")
+  )
+  eq({ { text = "alpha.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+  eq({ { text = "src", priority = 150 } }, highlighted(s, "XuePickerDirectory"))
+  eq({ { text = "1", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  eq({ { text = "7", priority = 150 } }, highlighted(s, "XuePickerColNr"))
+  eq({ { text = "café", priority = 150 } }, highlighted(s, "XuePickerMatch"))
+  eq({ { text = " [E001]", priority = 150 } }, highlighted(s, "XuePickerDiagnosticCode"))
+  local selected = {}
+  for _, mark in ipairs(api.nvim_buf_get_extmarks(s.ui.bufs.list, -1, 0, -1, { details = true })) do
+    if mark[4].line_hl_group == "XuePickerSelected" then
+      selected[#selected + 1] = mark[2]
+    end
+  end
+  eq({ 0, 1, 2 }, selected)
+  for _, level in ipairs({ "Error", "Warn", "Info", "Hint" }) do
+    eq("DiagnosticSign" .. level, api.nvim_get_hl(0, { name = "XuePickerDiagnostic" .. level }).link)
+  end
+  eq("Comment", api.nvim_get_hl(0, { name = "XuePickerDiagnosticCode" }).link)
+  s.ui.list_width = 18
+  s.ui:render()
+  for _, line in ipairs(api.nvim_buf_get_lines(s.ui.bufs.list, 0, -1, false)) do
+    assert(vim.fn.strdisplaywidth(line) <= 18)
+  end
+  local matches = vim.tbl_map(function(span)
+    return span.text
+  end, highlighted(s, "XuePickerMatch"))
+  eq("café", table.concat(matches))
+  s:close()
+  s = ready(
+    B.diagnostics(opts({ bufnr = buf, path_format = "relative", multiline = false, diag_icons = false }))
+  )
+  s.ui:render()
+  eq(
+    "▸   E [lua_ls] src/alpha.lua:1:7: bad café⇥value [E001]",
+    api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
+  )
+  eq({
+    { text = "E", priority = 150 },
+    { text = "[lua_ls]", priority = 150 },
+    { text = "src/alpha.lua", priority = 150 },
+  }, highlighted(s, "XuePickerDiagnosticError"))
+  s:close()
+  s = ready(B.diagnostics(opts({
+    bufnr = buf,
+    multiline = false,
+    diag_source = false,
+    diag_code = false,
+    signs = { Error = { text = "!", texthl = "Special" } },
+  })))
+  eq({ { text = "!", priority = 150 } }, highlighted(s, "Special"))
+  eq({}, highlighted(s, "XuePickerDiagnosticCode"))
+  assert(not api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]:find("lua_ls", 1, true))
+  s:close()
+  vim.diagnostic.config({ signs = original_signs })
+  vim.diagnostic.reset(ns)
+end)
 test("marks include caller local and global position/context", function()
   vim.cmd({ cmd = "edit", args = { fixture .. "/src/alpha.lua" } })
   api.nvim_buf_set_mark(0, "a", 2, 3, {})

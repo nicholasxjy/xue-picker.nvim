@@ -68,7 +68,23 @@ Builtins                                                *xue-picker-builtin*
         Example: require("xue-picker.builtin").grep_word({ cwd = "~/project" })
         Command: :XuePicker grep_word
     diagnostics: scope="workspace"/"buffer"/"cwd"; passes through bufnr and severity.
-        severity follows |vim.diagnostic.get()|; more severe diagnostics come first.
+        severity follows |vim.diagnostic.get()|. sort=true or 1 (default) orders
+        Error/Warn/Info/Hint; sort="reverse" or 2 reverses severity order.
+        Equal severities are ordered by buffer/line/column, with stable ties.
+        sort=false preserves vim.diagnostic.get() order. A function receives
+        (diagnostics, opts) and returns an ordered diagnostic array.
+        Filtering preserves this order. Set setup.pickers.diagnostics.sort
+        or pass sort per call.
+        Rows match fzf-lua: sign, [source], file:line:column:, message, [code].
+        filename_first displays filename directory:line:column: in the heading.
+        multiline=2 (default) puts messages below headings with one blank row
+        between entries; true removes the gap. false displays a compact row
+        using the first message line. Long rows wrap without splitting UTF-8.
+        Signs follow vim.diagnostic.config().signs.text, falling back to E/W/I/H.
+        diag_icons=false uses these letters; a severity-indexed table overrides
+        the symbols. signs.Error/Warn/Info/Hint accepts {text=..., texthl=...}.
+        diag_source, diag_code, color_icons, color_headings default to true;
+        file icons and Git status are disabled by default.
     marks: Global marks and local marks from the invoking buffer; unfolds on jump.
     oldfiles: Excludes invalid entries; filter.cwd=true restricts the scope.
     git_files: Tracked files; untracked=true includes untracked files.
@@ -180,7 +196,8 @@ UI and preview                                               *xue-picker-ui*
 
     Highlight groups (all prefixed with XuePicker): Normal, Prompt, Match, Icon,
     Filename, Directory, LineNr, ColNr, Selected, Marker, Hint, HintBind,
-    HintSeparator, Count, Error, Git, Group, PreviewLine, Border.
+    HintSeparator, Count, Error, Git, Group, PreviewLine, Border,
+    DiagnosticError, DiagnosticWarn, DiagnosticInfo, DiagnosticHint, DiagnosticCode.
     All default definitions are exported in defaults.highlights and
     doc/default-config.lua.
     Default links to fzf-lua groups (left names have the XuePicker prefix):
@@ -201,6 +218,11 @@ UI and preview                                               *xue-picker-ui*
         Group        -> FzfLuaHeaderText
         PreviewLine  -> FzfLuaCursorLine
         Border       -> FzfLuaBorder
+        DiagnosticError -> DiagnosticSignError
+        DiagnosticWarn  -> DiagnosticSignWarn
+        DiagnosticInfo  -> DiagnosticSignInfo
+        DiagnosticHint  -> DiagnosticSignHint
+        DiagnosticCode  -> Comment
     Error -> DiagnosticError, Git -> DiffChange (no equivalent fzf-lua groups).
     Target groups are defined by the colorscheme or fzf-lua;
     this plugin does not load fzf-lua automatically.

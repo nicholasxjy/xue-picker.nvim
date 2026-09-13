@@ -259,6 +259,9 @@ function M:format(item, index)
     .. " "
     .. (s.selected[item.id] and opts.marker or " ")
     .. " "
+  if opts.name == "diagnostics" then
+    return require("xue-picker.diagnostics").format(item, s, self.list_width, prefix, icon(item, opts))
+  end
   local text, map, spans, right_directory = "", {}, {}, nil
   if grep and item.lnum then
     local line = ("%" .. (self.line_width or 1) .. "d"):format(item.lnum)
@@ -359,7 +362,7 @@ function M:render()
       end
     end
   end
-  local lines, marks, directories, selected_row = {}, {}, {}, nil
+  local lines, marks, directories, selected_row, selected_rows = {}, {}, {}, nil, {}
   local height = self.list_height
   s.offset = math.max(1, math.min(s.offset or 1, math.max(1, #s.results)))
   if s.index < s.offset then
@@ -369,7 +372,7 @@ function M:render()
     s.offset = math.max(1, s.index - height + (s.opts.group and 2 or 1))
   end
   local function fill()
-    lines, marks, directories, selected_row = {}, {}, {}, nil
+    lines, marks, directories, selected_row, selected_rows = {}, {}, {}, nil, {}
     local previous
     for i = s.offset, #s.results do
       local item = s.results[i]
@@ -399,7 +402,16 @@ function M:render()
       if #lines >= height then
         break
       end
-      local line, spans, directory_start = self:format(item, i)
+      local line, spans, directory_start, continuation = self:format(item, i)
+      local entry_height = 1
+      for _, part in ipairs(continuation or {}) do
+        if not part.gap then
+          entry_height = entry_height + 1
+        end
+      end
+      if #lines > 0 and #lines + entry_height > height then
+        break
+      end
       lines[#lines + 1] = line
       directories[#lines - 1] = directory_start
       for _, span in ipairs(spans) do
@@ -407,11 +419,24 @@ function M:render()
       end
       if i == s.index then
         selected_row = #lines - 1
+        selected_rows[#selected_rows + 1] = selected_row
+      end
+      for _, part in ipairs(continuation or {}) do
+        if #lines >= height then
+          break
+        end
+        lines[#lines + 1] = part.text
+        for _, span in ipairs(part.spans) do
+          marks[#marks + 1] = { #lines - 1, unpack(span) }
+        end
+        if i == s.index and not part.gap then
+          selected_rows[#selected_rows + 1] = #lines - 1
+        end
       end
     end
   end
   fill()
-  -- Group headings consume rows. Keep the active result visible when scrolling.
+  -- Group headings and multiline entries consume rows. Keep the selection visible.
   while #s.results > 0 and not selected_row and s.offset < s.index do
     s.offset = s.offset + 1
     fill()
@@ -441,11 +466,11 @@ function M:render()
   end
   api.nvim_buf_set_lines(self.bufs.list, 0, -1, false, lines)
   api.nvim_buf_clear_namespace(self.bufs.list, ns, 0, -1)
-  if selected_row then
+  for _, row in ipairs(selected_rows) do
     api.nvim_buf_set_extmark(
       self.bufs.list,
       ns,
-      selected_row,
+      row,
       0,
       { line_hl_group = "XuePickerSelected", priority = 90 }
     )

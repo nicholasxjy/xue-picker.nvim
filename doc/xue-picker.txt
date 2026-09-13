@@ -52,6 +52,41 @@ API                                                         *xue-picker-api*
         Restores the most recent resumable session.
         ui_select/ui_input sessions are excluded from resume.
 
+Statusline                                            *xue-picker-statusline*
+    statusline=true by default. While open, a global statusline displays the
+    picker name, matched/total counts, selected count, backend, and loading,
+    searching, error or truncated state. The previous 'laststatus' is restored
+    on close, accept, replacement or failed opening. Existing global and
+    window-local 'statusline' definitions are preserved. A 'laststatus' value
+    changed by the user while open is retained.
+
+    lualine.nvim: add "xue-picker" to your existing extensions list: >lua
+        require("lualine").setup({ extensions = { "xue-picker" } })
+<   Keep statusline=true. Supports globalstatus=true and false, uses the lualine
+    theme, and refreshes on picker state changes. XuePicker must be on the
+    runtime path when lualine loads the extension. If using ignore_focus,
+    allow focus on the xue-picker-input filetype.
+
+    For custom statuslines, defaults.statusline=false disables the built-in
+    display and leaves 'laststatus' unchanged. Per-picker and per-call overrides
+    also accept statusline=false. The API and update event remain available.
+
+    require("xue-picker").statusline() -> string
+        Plain text component; returns "" when closed. A native statusline can
+        include: %{v:lua.require("xue-picker").statusline()}
+        Use %{} (without recursive evaluation) to preserve literal percent signs.
+
+    require("xue-picker").status() -> table or nil
+        Fresh snapshot, nil when closed. Fields: name, cwd, query, index
+        (1-based, 0 when empty), count (matched), total, selected (count),
+        loading, searching, error, truncated, backend.
+
+    User XuePickerUpdate
+        Fires on opening, rendered state changes and closing. Read status()
+        inside the callback; nil means closed. Updates follow performance.render_ms;
+        unchanged renders do not repeat the event. The lualine extension handles
+        this event automatically.
+
 Builtins                                                *xue-picker-builtin*
     files: Directory files, without history.
     smart: Combines directory, open, and valid recent files;

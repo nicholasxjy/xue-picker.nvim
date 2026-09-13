@@ -181,6 +181,7 @@ require("xue-picker").setup({
       ignore = true,
     },
     sort = true,
+    statusline = true,
   },
   pickers = {
     buffers = {

@@ -339,6 +339,7 @@ function Session:close()
     pcall(api.nvim_del_augroup_by_id, self.augroup)
   end
   if self.ui then
+    require("xue-picker.statusline").close(self)
     self.ui:close()
   end
   if api.nvim_get_current_tabpage() == self.origin.tab and api.nvim_win_is_valid(self.origin.win) then
@@ -361,6 +362,7 @@ function Session:close()
       seed_index = math.min(self.index, 9),
     }
   end
+  require("xue-picker.statusline").update()
   if self.opts.on_close then
     self.opts.on_close(self)
   end
@@ -460,8 +462,12 @@ function M.new(opts, restore)
   M.active = self
   local ok, failure = xpcall(function()
     self.ui = require("xue-picker.ui").open(self)
+    require("xue-picker.statusline").open(self)
     self.query = self.ui:query(self.query)
     self.ui:render()
+    if self.closed then
+      return
+    end
     self.augroup = api.nvim_create_augroup("XuePickerSession" .. serial, { clear = true })
     api.nvim_create_autocmd({ "TabLeave", "VimLeavePre" }, {
       group = self.augroup,

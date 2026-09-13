@@ -20,4 +20,10 @@ function M.resume()
   local previous = session.previous
   return session.new(previous.opts, previous)
 end
+function M.status()
+  return require("xue-picker.statusline").get()
+end
+function M.statusline()
+  return require("xue-picker.statusline").text()
+end
 return M

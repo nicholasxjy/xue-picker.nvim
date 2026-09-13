@@ -142,6 +142,66 @@ def check_input_editing(nvim):
     nvim.ui_try_resize(120, 40)
 
 
+def check_statusline(nvim):
+    nvim.exec_lua("old_status={vim.o.laststatus,vim.go.statusline,vim.wo.statusline}; vim.go.statusline='GLOBAL'; vim.wo.statusline='EDITOR'")
+    for value in (0, 1, 2, 3):
+        nvim.exec_lua("vim.o.laststatus=...; s=require('xue-picker').pick({name='status',items={'alpha','beta','gamma'},multiselect=true})", value)
+        wait(nvim, "s.started and not s.loading and not s.searching and vim.fn.mode()=='i'")
+        lines = snapshot(nvim, f"ui-statusline-{value}")
+        assert any("XuePicker status · 3/3" in line for line in lines), lines
+        nvim.input("alpha<C-x>")
+        wait(nvim, "s.query=='alpha' and #s.results==1 and not s.searching")
+        lines = snapshot(nvim, f"ui-statusline-filtered-{value}")
+        assert any("XuePicker status · 1/3 · 1 selected" in line for line in lines), lines
+        nvim.input("<Esc>")
+        wait(nvim, "s.closed")
+        assert nvim.exec_lua("return vim.o.laststatus==... and vim.go.statusline=='GLOBAL' and vim.wo.statusline=='EDITOR'", value)
+        if value >= 2:
+            assert any("EDITOR" in line for line in snapshot(nvim, f"ui-statusline-restored-{value}"))
+    nvim.exec_lua("vim.o.laststatus,vim.go.statusline,vim.wo.statusline=unpack(old_status)")
+
+
+def check_lualine(nvim):
+    path = os.environ.get("XUE_LUALINE")
+    if not path:
+        return
+    nvim.exec_lua("vim.opt.rtp:append(...)", path)
+    for globalstatus in (False, True):
+        nvim.exec_lua("""
+          local globalstatus=...
+          vim.o.laststatus=globalstatus and 3 or 2
+          local config={options={globalstatus=globalstatus,theme='gruvbox'},
+            sections={lualine_a={function() return 'EDITOR' end}},extensions={'xue-picker'}}
+          require('lualine').setup(config)
+          require('lualine').setup(config)
+          assert(#vim.api.nvim_get_autocmds({group='XuePickerLualine',event='User'})==1)
+          s=require('xue-picker').pick({name='100%#ErrorMsg# café',items={'alpha','beta'},multiselect=true})
+        """, globalstatus)
+        wait(nvim, "s.started and not s.loading and not s.searching and vim.fn.mode()=='i'")
+        lines = snapshot(nvim, f"ui-lualine-{globalstatus}")
+        assert any("XuePicker 100%#ErrorMsg# café · 2/2" in line for line in lines), lines
+        assert nvim.exec_lua("return vim.wo[s.ui.wins.input].statusline:find('lualine_a',1,true)~=nil")
+        nvim.input("alpha")
+        wait(nvim, "s.query=='alpha' and #s.results==1 and not s.searching")
+        nvim.input("<C-x>")
+        wait(nvim, "require('xue-picker').status().selected==1")
+        lines = snapshot(nvim, f"ui-lualine-filtered-{globalstatus}")
+        assert any("1/2 · 1 selected" in line for line in lines), lines
+        nvim.exec_lua("s=require('xue-picker').pick({name='replacement',items={'new'}})")
+        wait(nvim, "s.started and not s.loading and not s.searching")
+        assert any("XuePicker replacement · 1/1" in line for line in snapshot(nvim, f"ui-lualine-replaced-{globalstatus}"))
+        nvim.exec_lua("s:close(); s=require('xue-picker').resume()")
+        wait(nvim, "s.started and not s.loading and not s.searching")
+        assert any("XuePicker replacement · 1/1" in line for line in snapshot(nvim, f"ui-lualine-resumed-{globalstatus}"))
+        nvim.input("<Esc>")
+        wait(nvim, "s.closed")
+        assert nvim.exec_lua("return vim.o.laststatus==(... and 3 or 2)", globalstatus)
+        lines = snapshot(nvim, f"ui-lualine-restored-{globalstatus}")
+        assert any("EDITOR" in line for line in lines), lines
+        assert not any("XuePicker" in line for line in lines), lines
+    print("Attached lualine: native extension, global/per-window modes, live counts, selection, replacement, resume and restoration OK")
+
+
 def run():
     faulthandler.dump_traceback_later(20, exit=True)
     nvim = pynvim.attach("child", argv=[os.environ.get("NVIM", "nvim"), "--embed", "-u", "NONE", "-i", "NONE", "--noplugin"])
@@ -150,6 +210,7 @@ def run():
         nvim.exec_lua("vim.opt.rtp:prepend(...)", str(ROOT))
         nvim.command("runtime plugin/xue-picker.lua")
         nvim.exec_lua("vim.o.cmdheight=0; vim.o.swapfile=false; vim.g.xue_origin=vim.api.nvim_get_current_win()")
+        check_statusline(nvim)
         check_input_editing(nvim)
         nvim.exec_lua("s=require('xue-picker.builtin').files({cwd=..., git={enabled=false}})", str(ROOT))
         wait(nvim, "s.closed or (not s.loading and not s.searching)")
@@ -288,6 +349,7 @@ def run():
         wait(nvim, "vim.fn.getcmdtype()==':' and vim.fn.getcmdline()==history_text")
         assert nvim.exec_lua("return vim.g.xue_executed==nil")
         nvim.input("<Esc>")
+        check_lualine(nvim)
         messages = nvim.command_output("messages")
         assert "Error" not in messages and "E5108" not in messages, messages
         print("Attached UI: files, input, mappings, preview, resize, grep groups, diagnostics, scroll, quickfix, resume, tabs, callbacks OK")

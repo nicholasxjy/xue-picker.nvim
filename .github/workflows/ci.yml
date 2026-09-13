@@ -32,7 +32,16 @@ jobs:
       - run: make lint test differential
         env:
           XUE_REFERENCE: ${{ github.workspace }}/.test-data/reference
+      - name: Fixed lualine checkout (integration tests only)
+        uses: actions/checkout@v4
+        with:
+          repository: nvim-lualine/lualine.nvim
+          ref: 221ce6b2d999187044529f49da6554a92f740a96
+          path: .test-data/lualine
+          persist-credentials: false
       - run: make ui PYTHON=/tmp/xue-test-env/bin/python
+        env:
+          XUE_LUALINE: ${{ github.workspace }}/.test-data/lualine
       - run: make perf
       - name: Upload UI snapshots and benchmark data
         if: always()

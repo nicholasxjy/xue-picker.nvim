@@ -79,6 +79,41 @@ Diagnostic rows follow fzf-lua: a severity sign, `[source]`, and `file:line:colu
 
 Signs come from `vim.diagnostic.config().signs.text`, with E/W/I/H fallbacks. As in fzf-lua, `diag_icons=false` uses those letters; a severity-indexed `diag_icons` table overrides the symbols. `signs.Error/Warn/Info/Hint={text=..., texthl=...}` provides per-level overrides. `diag_source`, `diag_code`, `color_icons`, and `color_headings` default to true. File icons and Git status are disabled for diagnostics by default. Source labels and unformatted paths use severity colors; filename/directory formatting and line/column highlights use the same groups as fzf-lua.
 
+## Statusline
+
+Opening a picker shows a statusline with its name, matched/total counts, selected
+count, backend, and loading/search/error state. The picker temporarily uses
+`laststatus=3` and restores the previous setting on close, accept, or replacement.
+Existing global and window-local statusline definitions are preserved.
+
+For **lualine.nvim**, add `"xue-picker"` to your existing extensions list:
+
+```lua
+require("lualine").setup({
+  extensions = { "xue-picker" },
+})
+```
+
+The extension follows your lualine theme, updates as picker state changes, and
+supports both values of lualine's `globalstatus` option. Keep the picker's default
+`statusline=true` to display the line above the panel. The picker must be on the
+runtime path when lualine loads the extension; allow focus on `xue-picker-input`
+if you customize lualine's `ignore_focus` option.
+
+For a **custom statusline**, `require("xue-picker").statusline()` returns plain
+text while open and `""` after closing. Use it as a Lua component or inside
+`%{v:lua.require("xue-picker").statusline()}`. Set
+`require("xue-picker").setup({ defaults = { statusline = false } })` to manage
+the statusline and `laststatus` yourself. Per-picker and per-call overrides also
+accept `statusline=false`.
+
+`require("xue-picker").status()` returns a fresh state table, or `nil` when closed.
+Fields: `name`, `cwd`, `query`, `index` (1-based, 0 when empty), `count`, `total`,
+`selected` (count), `loading`, `searching`, `error`, `truncated`, and `backend`.
+The `User XuePickerUpdate` event fires on open, rendered state changes, and close,
+including when `statusline=false`. Read `status()` in the callback; repeated
+renders with unchanged state do not emit another event.
+
 ## Query Syntax and Sorting
 
 `files`, `smart`, and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102).
@@ -288,12 +323,13 @@ XUE_REFERENCE=/path/to/minibuffer.nvim make differential
 python3 -m venv .test-data/venv
 .test-data/venv/bin/pip install -r tests/requirements.txt
 make ui PYTHON=.test-data/venv/bin/python
+XUE_LUALINE=/path/to/lualine.nvim make ui PYTHON=.test-data/venv/bin/python
 make perf
 make perf-ui PYTHON=.test-data/venv/bin/python
 XUE_FFF_RTP=/path/to/installed/fff make test-fff  # Optional, requires pre-built native library
 ```
 
-Full test suites also require a local `man` installation (e.g. `man-db` on Linux) to verify `:Man` navigation actions.
+Full test suites also require a local `man` installation (e.g. `man-db` on Linux) to verify `:Man` navigation actions. `XUE_LUALINE` enables tests against a real lualine checkout; CI uses a pinned commit to verify both global and per-window statuslines.
 
 The differential script extracts test oracles from the fixed reference commit into a temporary directory without taking the reference implementation as a runtime dependency. Integration tests verify success, pagination, and failure paths through a real worker/RPC setup using controlled fff test doubles; cold/hot index benchmarks with real fff native libraries require external dependencies. CI runs lint, integration, differential, and attached-UI tests across Neovim stable and nightly, recording UI snapshots and performance JSON.
 

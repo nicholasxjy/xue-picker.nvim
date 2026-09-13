@@ -84,6 +84,136 @@ test("nested merge, list replacement and precedence", function()
   eq(9, config.preview.max_bytes)
   eq({}, config.scan.args)
 end)
+test("statusline state follows async results, selection, refresh and close", function()
+  eq(nil, picker.status())
+  eq("", picker.statusline())
+  local states = {}
+  local event = api.nvim_create_autocmd("User", {
+    pattern = "XuePickerUpdate",
+    callback = function()
+      states[#states + 1] = picker.status() or false
+    end,
+  })
+  local emit
+  local s = picker.pick(opts({
+    name = "custom",
+    hint = false,
+    multiselect = true,
+    source = function(_, deliver)
+      emit = deliver
+    end,
+  }))
+  eq("custom", picker.status().name)
+  eq(0, picker.status().index)
+  assert(picker.status().loading)
+  eq("XuePicker custom · 0/0 · Loading", picker.statusline())
+  await(function()
+    return emit ~= nil
+  end)
+  emit({ "alpha", "beta", "gamma" }, { done = true, replace = true })
+  ready(s)
+  s.ui:render()
+  eq("XuePicker custom · 3/3", picker.statusline())
+  local count = #states
+  s.ui:render()
+  eq(count, #states)
+  local state = picker.status()
+  state.name = "changed"
+  eq("custom", picker.status().name)
+  s:move(1)
+  s:act("toggle")
+  s.ui:render()
+  eq(2, picker.status().index)
+  eq(1, states[#states].selected)
+  s:set_query("alpha")
+  ready(s)
+  s.ui:render()
+  eq("alpha", states[#states].query)
+  eq(1, picker.status().count)
+  eq("XuePicker custom · 1/3 · 1 selected", picker.statusline())
+  s:refresh()
+  assert(picker.status().loading)
+  emit({}, { done = true, replace = true, error = "source failed", truncated = true, backend = "test" })
+  await(function()
+    return not s.loading and not s.searching
+  end)
+  s.ui:render()
+  eq("XuePicker custom · 0/0 · 1 selected · test · Failed · Truncated", picker.statusline())
+  s:close()
+  eq(false, states[#states])
+  eq(nil, picker.status())
+  eq("", picker.statusline())
+  count = #states
+  s:close()
+  eq(count, #states)
+  api.nvim_del_autocmd(event)
+end)
+test("native statusline restores options on close, replacement and resume", function()
+  local laststatus, global, win = vim.o.laststatus, vim.go.statusline, api.nvim_get_current_win()
+  local local_statusline = vim.wo[win].statusline
+  vim.go.statusline, vim.wo[win].statusline = "GLOBAL %f", "ORIGINAL %l"
+  for _, value in ipairs({ 0, 1, 2, 3 }) do
+    vim.o.laststatus = value
+    local s = ready(picker.pick(opts({ items = { "alpha", "beta" }, name = "100%#ErrorMsg# café\n" })))
+    eq(3, vim.o.laststatus)
+    local rendered = api.nvim_eval_statusline(vim.wo[s.ui.wins.input].statusline, {
+      winid = s.ui.wins.input,
+      maxwidth = 120,
+    }).str
+    assert(rendered:find("100%#ErrorMsg# café", 1, true), rendered)
+    eq("GLOBAL %f", vim.go.statusline)
+    eq("ORIGINAL %l", vim.wo[win].statusline)
+    local replacement = ready(picker.pick(opts({ items = { "new" } })))
+    assert(s.closed)
+    replacement:close()
+    eq(value, vim.o.laststatus)
+    local resumed = ready(picker.resume())
+    eq(3, vim.o.laststatus)
+    resumed:close()
+    eq(value, vim.o.laststatus)
+    eq("GLOBAL %f", vim.go.statusline)
+    eq("ORIGINAL %l", vim.wo[win].statusline)
+  end
+  vim.o.laststatus, vim.go.statusline, vim.wo[win].statusline = laststatus, global, local_statusline
+end)
+test("statusline opt-out preserves options and still publishes state", function()
+  local laststatus = vim.o.laststatus
+  vim.o.laststatus = 2
+  picker.setup({ defaults = { statusline = false } })
+  local s = ready(picker.pick(opts({ items = { "one" } })))
+  eq(2, vim.o.laststatus)
+  eq(1, picker.status().count)
+  assert(not vim.wo[s.ui.wins.input].statusline:find("xue-picker", 1, true))
+  s:close()
+  eq(2, vim.o.laststatus)
+  s = ready(picker.pick(opts({ items = { "one" }, statusline = true })))
+  eq(3, vim.o.laststatus)
+  vim.o.laststatus = 1
+  s:close()
+  eq(1, vim.o.laststatus)
+  vim.o.laststatus = laststatus
+end)
+test("statusline restores after input window closure and failed opening", function()
+  local laststatus = vim.o.laststatus
+  vim.o.laststatus = 2
+  local s = ready(picker.pick(opts({ items = { "one" } })))
+  api.nvim_win_close(s.ui.wins.input, true)
+  assert(s.closed)
+  eq(2, vim.o.laststatus)
+  eq(nil, picker.status())
+  local ok = pcall(
+    picker.pick,
+    opts({
+      highlight = function()
+        error("statusline test render failure")
+      end,
+    })
+  )
+  assert(not ok)
+  eq(2, vim.o.laststatus)
+  eq(nil, picker.status())
+  vim.o.laststatus = laststatus
+end)
 test("highlight overrides replace links and default flags at each configuration layer", function()
   picker.setup({
     defaults = { highlights = { XuePickerMatch = { fg = "#123456", bold = true } } },

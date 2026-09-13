@@ -474,6 +474,7 @@ function M:render()
   )
   self.input:render(count)
   if s.opts.hint == false then
+    require("xue-picker.statusline").update()
     return
   end
   local labels = {
@@ -544,6 +545,7 @@ function M:render()
   for _, span in ipairs(hint_spans) do
     highlight(self.bufs.hint, 0, unpack(span))
   end
+  require("xue-picker.statusline").update()
 end
 function M:preview(lines, row)
   if not api.nvim_buf_is_valid(self.bufs.preview) then

@@ -6,6 +6,7 @@ M.defaults = {
   marker = "●",
   icons = "auto",
   hint = true,
+  statusline = true,
   path_format = "filename_first", -- or "relative", or function(item, cwd)
   layout = { height = 0.4, max_height = 18, preview_width = 0.5, wide = 100, min_preview = 6 },
   preview = { enabled = false, debounce_ms = 60, max_bytes = 1048576, max_lines = 2000 },

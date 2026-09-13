@@ -1,8 +1,8 @@
 local M = { last_fallback = nil }
 function M.new(opts)
-  assert(vim.tbl_contains({ "auto", "fff", "ripgrep" }, opts.backend), "backend 必须是 auto/fff/ripgrep")
-  assert(opts.mode == "regex" or opts.mode == "plain", "mode 必须是 regex/plain")
-  assert(opts.max_results > 0, "max_results 必须大于零")
+  assert(vim.tbl_contains({ "auto", "fff", "ripgrep" }, opts.backend), "backend must be auto/fff/ripgrep")
+  assert(opts.mode == "regex" or opts.mode == "plain", "mode must be regex/plain")
+  assert(opts.max_results > 0, "max_results must be greater than zero")
   local backend = opts.backend == "ripgrep" and "ripgrep" or "fff"
   local serial, cancel = 0, nil
   return function(query, emit)

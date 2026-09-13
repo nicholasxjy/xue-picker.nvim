@@ -49,7 +49,10 @@ function M.scan(opts, emit)
     emit(cached.items, { loading = true, cached = true, replace = true, seed = cached.seed, cache_key = key })
   end
   if vim.fn.executable(opts.scan.cmd) ~= 1 then
-    emit({}, { error = "文件扫描需要 ripgrep (rg): " .. opts.scan.cmd, replace = true, done = true })
+    emit(
+      {},
+      { error = "File scanning requires ripgrep (rg): " .. opts.scan.cmd, replace = true, done = true }
+    )
     return function() end
   end
   return require("xue-picker.process").stream(

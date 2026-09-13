@@ -171,7 +171,7 @@ function M.buffers(opts)
         if #failed > 0 then
           vim.schedule(function()
             if not s.closed then
-              s.error = "保留未保存的 buffer: " .. table.concat(failed, ", ")
+              s.error = "Kept buffers with unsaved changes: " .. table.concat(failed, ", ")
               s:draw()
             end
           end)
@@ -318,7 +318,7 @@ function M.git_files(opts)
 end
 function M.history(opts)
   return launch("history", opts, function(o)
-    assert(o.type == "cmd" or o.type == "search", "history.type 必须是 cmd/search")
+    assert(o.type == "cmd" or o.type == "search", "history.type must be cmd/search")
     o.source = o.source
       or function(_, emit)
         local items = {}
@@ -417,7 +417,7 @@ function M.ui_select(items, opts, on_choice)
     items = choices,
     resumable = false,
     sort = false,
-    prompt = opts.prompt or "选择: ",
+    prompt = opts.prompt or "Select: ",
     on_accept = function(selected)
       callback(items[selected[1].original_index], selected[1].original_index)
     end,
@@ -444,7 +444,7 @@ function M.ui_input(opts, on_confirm)
     live = opts.completion ~= nil,
     debounce_ms = 0,
     query = opts.default or "",
-    prompt = opts.prompt or "输入: ",
+    prompt = opts.prompt or "Input: ",
     on_accept = function(selected)
       callback(selected[1].text)
     end,

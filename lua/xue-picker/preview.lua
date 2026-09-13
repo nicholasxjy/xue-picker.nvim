@@ -11,7 +11,7 @@ function M.update(s)
   end
   local item = s.results[s.index]
   if not item then
-    s.ui:preview({ "无预览" })
+    s.ui:preview({ "No preview" })
     return
   end
   local gen, opts = s.preview_generation, s.opts.preview
@@ -32,7 +32,7 @@ function M.update(s)
     for i = first, math.min(#lines, first + opts.max_lines - 1) do
       out[#out + 1] = ("%5d  %s"):format(i, U.clean(lines[i]))
     end
-    s.ui:preview(#out > 0 and out or { "空文件" }, target - first + 1)
+    s.ui:preview(#out > 0 and out or { "Empty file" }, target - first + 1)
   end
   s.preview_timer = U.later(opts.debounce_ms, function()
     if not valid() then
@@ -52,7 +52,7 @@ function M.update(s)
       local count = vim.api.nvim_buf_line_count(buf)
       local first = math.max(0, target - 1 - math.floor(opts.max_lines / 2))
       if vim.api.nvim_buf_get_offset(buf, count) > opts.max_bytes then
-        s.ui:preview({ "文件超过预览大小限制" })
+        s.ui:preview({ "File exceeds the preview size limit" })
         return
       end
       local lines = vim.api.nvim_buf_get_lines(buf, first, math.min(count, first + opts.max_lines), false)
@@ -64,7 +64,7 @@ function M.update(s)
       return
     end
     if not item.path then
-      s.ui:preview({ item.text or "无预览" })
+      s.ui:preview({ item.text or "No preview" })
       return
     end
     vim.uv.fs_stat(
@@ -74,15 +74,15 @@ function M.update(s)
           return
         end
         if err or not stat then
-          s.ui:preview({ "无法读取文件: " .. tostring(err) })
+          s.ui:preview({ "Cannot read file: " .. tostring(err) })
           return
         end
         if stat.type ~= "file" then
-          s.ui:preview({ "不是普通文件" })
+          s.ui:preview({ "Not a regular file" })
           return
         end
         if stat.size > opts.max_bytes then
-          s.ui:preview({ "文件超过预览大小限制" })
+          s.ui:preview({ "File exceeds the preview size limit" })
           return
         end
         U.read(item.path, opts.max_bytes + 1, function(data, read_err)
@@ -92,9 +92,9 @@ function M.update(s)
           if read_err then
             s.ui:preview({ tostring(read_err) })
           elseif #data > opts.max_bytes then
-            s.ui:preview({ "文件超过预览大小限制" })
+            s.ui:preview({ "File exceeds the preview size limit" })
           elseif data:find("\0", 1, true) then
-            s.ui:preview({ "二进制文件，不显示预览" })
+            s.ui:preview({ "Binary file; preview unavailable" })
           else
             show(vim.split(data, "\n", { plain = true }))
           end

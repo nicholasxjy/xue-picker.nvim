@@ -10,7 +10,7 @@ vim.api.nvim_create_user_command("XuePicker", function(cmd)
     return
   end
   if not vim.tbl_contains(builtin.names, name) then
-    error("未知 XuePicker builtin: " .. name)
+    error("Unknown XuePicker builtin: " .. name)
   end
   builtin[name]()
 end, {

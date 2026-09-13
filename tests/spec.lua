@@ -41,7 +41,7 @@ fixture = vim.uv.fs_realpath(fixture)
 local function write(name, lines)
   vim.fn.writefile(lines, fixture .. "/" .. name)
 end
-write("src/alpha.lua", { "local Foo = '你好 café'", "alpha.beta", "foo Foo", "你好 foo" })
+write("src/alpha.lua", { "local Foo = 'hi🌍 café'", "alpha.beta", "foo Foo", "hi🌍 foo" })
 write("beta.txt", { "hello foo", "alphaXbeta", "none" })
 write(".hidden", { "foo" })
 write("ignored.txt", { "foo" })
@@ -114,7 +114,7 @@ test("default highlight links preserve theme overrides and follow target colors"
   vim.cmd("colorscheme default")
 end)
 test("filename and icon spans handle Unicode, escaped characters and match priority", function()
-  local name = "你好\ncafé.lua"
+  local name = "hi🌍\ncafé.lua"
   for _, path_format in ipairs({ "filename_first", "relative" }) do
     local s = ready(picker.pick(opts({
       items = { U.file(fixture .. "/src/" .. name, fixture) },
@@ -146,12 +146,12 @@ test("filename and icon spans handle Unicode, escaped characters and match prior
 end)
 test("files and smart align directories to the longest visible row independently of window width", function()
   for _, builtin in ipairs({ B.files, B.smart }) do
-    local item = U.file(fixture .. "/目录\t/alpha.lua", fixture)
+    local item = U.file(fixture .. "/dir🌍\t/alpha.lua", fixture)
     item.status = "+"
-    local second_directory = "very-long-directory/目/"
+    local second_directory = "very-long-directory/🌍/"
     local second = U.file(fixture .. "/" .. second_directory .. "b.lua", fixture)
     local s = ready(builtin(opts({
-      query = "目",
+      query = "🌍",
       sort = false,
       source = function(_, emit)
         emit({ item, second }, { replace = true, done = true })
@@ -161,7 +161,7 @@ test("files and smart align directories to the longest visible row independently
       end,
     })))
     s.git_status[item.path] = " M"
-    local directory = "目录⇥/"
+    local directory = "dir🌍⇥/"
     local longest_width = vim.fn.strdisplaywidth("    📄 b.lua  " .. second_directory)
     local baseline
     for _, width in ipairs({ 120, 60, 32, 8 }) do
@@ -185,7 +185,7 @@ test("files and smart align directories to the longest visible row independently
       local matches = highlighted(s, "XuePickerMatch")
       assert(#matches > 0)
       for _, match in ipairs(matches) do
-        eq("目", match.text)
+        eq("🌍", match.text)
       end
     end
     s:set_query("alpha")
@@ -248,7 +248,7 @@ test("live_grep renders header icons and leading aligned locations with accurate
       path = fixture .. "/src/alpha.lua",
       lnum = 2,
       col = 8,
-      text = "\t你好 match",
+      text = "\thi🌍 match",
       ranges = { { 8, 13 } },
     },
     {
@@ -402,10 +402,10 @@ end)
 test("fzf-style hints preserve key aliases, literal case and separate key and action highlights", function()
   local s = ready(picker.pick(opts({
     items = { "foo" },
-    actions = { custom = function() end, ["自定义"] = function() end, preview = function() end },
+    actions = { custom = function() end, ["more🌟"] = function() end, preview = function() end },
     keymaps = {
       custom = { "Z", "z" },
-      ["自定义"] = "<M-j>",
+      ["more🌟"] = "<M-j>",
     },
   })))
   s.ui.width = 1000
@@ -416,14 +416,14 @@ test("fzf-style hints preserve key aliases, literal case and separate key and ac
   }, highlighted(s, "XuePickerHintBind", "hint"))
   eq({
     { text = "custom", priority = 150 },
-    { text = "自定义", priority = 150 },
+    { text = "more🌟", priority = 150 },
   }, highlighted(s, "XuePickerHint", "hint"))
-  eq(":: <Z>/<z> to custom|<alt-j> to 自定义", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  eq(":: <Z>/<z> to custom|<alt-j> to more🌟", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   eq("FzfLuaHeaderBind", api.nvim_get_hl(0, { name = "XuePickerHintBind" }).link)
   eq("FzfLuaHeaderText", api.nvim_get_hl(0, { name = "XuePickerHint" }).link)
   s.ui.width = 32
   s.ui:render()
-  eq(":: <Z> to custom|<alt-j> to 自定义", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  eq(":: <Z> to custom|<alt-j> to more🌟", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   eq({ "Z", "z" }, s.keys.custom)
   for _, name in ipairs({ "accept", "close", "next", "previous", "preview", "refresh" }) do
     assert(s.keys[name] and #s.keys[name] > 0, name .. " shortcut must remain active")
@@ -431,11 +431,11 @@ test("fzf-style hints preserve key aliases, literal case and separate key and ac
 end)
 test("error hints show the message while recovery shortcuts remain active and hidden", function()
   local s = ready(picker.pick(opts({ items = { "foo" } })))
-  s.error, s.ui.width = "错误\nretry failed", 1000
+  s.error, s.ui.width = "Error\nretry failed", 1000
   eq({}, highlighted(s, "XuePickerHintBind", "hint"))
   eq({}, highlighted(s, "XuePickerHint", "hint"))
-  eq({ { text = "错误↵retry failed", priority = 150 } }, highlighted(s, "XuePickerError", "hint"))
-  eq(":: 错误↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  eq({ { text = "Error↵retry failed", priority = 150 } }, highlighted(s, "XuePickerError", "hint"))
+  eq(":: Error↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   assert(#s.keys.close > 0 and #s.keys.refresh > 0)
 end)
 test("custom actions and local keymaps are cleaned", function()
@@ -881,12 +881,12 @@ test("preview loaded buffer, binary, size limit and stale reads", function()
   vim.uv.fs_close(fd)
   s = ready(B.files(opts({ query = "binary", preview = { enabled = true } })))
   await(function()
-    return table.concat(api.nvim_buf_get_lines(s.ui.bufs.preview, 0, -1, false)):find("二进制", 1, true)
+    return table.concat(api.nvim_buf_get_lines(s.ui.bufs.preview, 0, -1, false)):find("Binary", 1, true)
   end)
   s:close()
   s = ready(B.files(opts({ query = "alpha", preview = { enabled = true, max_bytes = 1 } })))
   await(function()
-    return table.concat(api.nvim_buf_get_lines(s.ui.bufs.preview, 0, -1, false)):find("超过", 1, true)
+    return table.concat(api.nvim_buf_get_lines(s.ui.bufs.preview, 0, -1, false)):find("exceeds", 1, true)
   end)
 end)
 test("frecency half-life, trim, atomic persistence and corrupt data", function()
@@ -931,7 +931,7 @@ test("ripgrep regex/plain, smartcase, Unicode byte ranges and no results", funct
   s = search("ripgrep", "alpha.beta", { mode = "plain" })
   eq(1, #s.results)
   s:close()
-  s = search("ripgrep", "你好")
+  s = search("ripgrep", "hi🌍")
   eq(2, #s.results)
   for _, item in ipairs(s.results) do
     eq(6, item.ranges[1][2] - item.ranges[1][1])
@@ -977,8 +977,15 @@ test("missing fff falls back, missing both remains retryable", function()
   assert(#s.results > 0)
 end)
 vim.opt.rtp:append(vim.fn.getcwd() .. "/tests/fixtures/fff")
+test("fff worker waits for the native index without initializing picker UI", function()
+  vim.env.XUE_TEST_FFF_MODE = "uninitialized_picker_ui"
+  local s = search("fff", "foo", { fallback = false })
+  assert(not s.error, s.error)
+  eq("fff", s.backend)
+  assert(#s.results > 0)
+end)
 test("fff worker pagination shares normalized regex/plain/Unicode contract", function()
-  for _, query in ipairs({ "foo", "Foo", "你好", "alpha.beta", "absent24122" }) do
+  for _, query in ipairs({ "foo", "Foo", "hi🌍", "alpha.beta", "absent24122" }) do
     local rg = search("ripgrep", query)
     assert(not rg.error, rg.error)
     local function compact(items)
@@ -1006,6 +1013,7 @@ for _, failure in ipairs({
   "init_error",
   "notify_init",
   "init_timeout",
+  "scan_timeout",
   "runtime_error",
   "notify_error",
   "request_timeout",
@@ -1060,7 +1068,7 @@ end)
 test("fff worker cancellation ignores late RPC and idle reclaims", function()
   local s = search("fff", "foo", { fff = { idle_timeout_ms = 10 } })
   eq("fff", s.backend)
-  s:set_query("你好")
+  s:set_query("hi🌍")
   s:close()
   await(function()
     return next(require("xue-picker.grep.fff").workers) == nil

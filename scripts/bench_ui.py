@@ -46,7 +46,7 @@ def run():
             for i in range(20000):
                 folder = base / f"pkg{i % 100:03}"
                 folder.mkdir(exist_ok=True)
-                (folder / f"file{i:06}.txt").write_text(f"unique{i:06}\n你好 needle {i}\n")
+                (folder / f"file{i:06}.txt").write_text(f"unique{i:06}\nhi🌍 needle {i}\n")
             result["fixture_creation_ms"] = (time.monotonic() - start) * 1000
             result["disk"] = nvim.exec_lua("""
               local cwd=...

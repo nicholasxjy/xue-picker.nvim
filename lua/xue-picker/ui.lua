@@ -11,7 +11,7 @@ function M.highlights(opts)
 end
 function M.capability()
   if vim.fn.has("nvim-0.12") ~= 1 then
-    return nil, "XuePicker 需要 Neovim 0.12+"
+    return nil, "XuePicker requires Neovim 0.12+"
   end
   local ok, core = pcall(require, "vim._core.ui2")
   if
@@ -20,7 +20,7 @@ function M.capability()
     or type(core.check_targets) ~= "function"
     or type(core.wins) ~= "table"
   then
-    return nil, "当前 Neovim 缺少兼容的 vim._core.ui2"
+    return nil, "This Neovim build lacks a compatible vim._core.ui2"
   end
   return core
 end
@@ -51,7 +51,7 @@ end
 function M.open(session)
   local core, err = M.capability()
   assert(core, err)
-  assert(#api.nvim_list_uis() > 0, "XuePicker 需要附着的 Neovim UI")
+  assert(#api.nvim_list_uis() > 0, "XuePicker requires an attached Neovim UI")
   if not core.cmd or core.cfg.enable == false then
     core.enable({ enable = true })
   end
@@ -433,7 +433,7 @@ function M:render()
     end
   end
   if #lines == 0 then
-    local message = s.error or (s.loading and "加载中…" or s.searching and "搜索中…" or "无结果")
+    local message = s.error or (s.loading and "Loading…" or s.searching and "Searching…" or "No results")
     lines = { grep and not s.error and (s.loading or s.searching) and "" or "  " .. message }
   end
   while #lines < height do
@@ -470,15 +470,15 @@ function M:render()
     0,
     { virt_text = { { U.clean(s.opts.prompt), "XuePickerPrompt" } }, virt_text_pos = "inline" }
   )
-  local status = s.error and "失败"
-    or not grep and (s.loading and "加载" or s.searching and "搜索")
+  local status = s.error and "Failed"
+    or not grep and (s.loading and "Loading" or s.searching and "Searching")
     or ""
   local count = (" %s%s %d/%d%s "):format(
     s.backend and s.backend .. " · " or "",
     status,
     #s.results,
     math.max(#s.items, #s.results),
-    s.truncated and " · 已截断" or ""
+    s.truncated and " · Truncated" or ""
   )
   if self.width > vim.fn.strdisplaywidth(s.query .. s.opts.prompt .. count) + 2 then
     api.nvim_buf_set_extmark(
@@ -589,7 +589,7 @@ function M:external_preview(info)
     return
   end
   if not info or not info.buf or not api.nvim_buf_is_valid(info.buf) then
-    self:preview({ "无预览" })
+    self:preview({ "No preview" })
     return
   end
   if self.external_buf and api.nvim_buf_is_valid(self.external_buf) then

@@ -3,7 +3,7 @@ function M.check()
   vim.health.start("xue-picker.nvim")
   local core, err = require("xue-picker.ui").capability()
   if core then
-    vim.health.ok("Neovim 0.12+ / vim._core.ui2 可用")
+    vim.health.ok("Neovim 0.12+ / vim._core.ui2 is available")
   else
     vim.health.error(err)
   end
@@ -11,29 +11,29 @@ function M.check()
   if vim.fn.executable(opts.ripgrep.cmd) == 1 then
     vim.health.ok("ripgrep: " .. vim.fn.exepath(opts.ripgrep.cmd))
   else
-    vim.health.warn("ripgrep 不可用；安装 rg 以支持文件扫描及 grep 回退")
+    vim.health.warn("ripgrep is unavailable; install rg for file scanning and grep fallback")
   end
   local fff = require("xue-picker.grep.fff")
   if fff.detect() then
-    vim.health.ok("fff Lua 入口: " .. fff.detect())
+    vim.health.ok("fff Lua entry point: " .. fff.detect())
     local ok, api = pcall(require, "fff")
     if ok and type(api.content_search) == "function" then
-      vim.health.ok("fff content_search() 接口可用")
+      vim.health.ok("fff content_search() API is available")
     else
-      vim.health.warn("fff API 不兼容: 需要 content_search()")
+      vim.health.warn("Incompatible fff API: content_search() is required")
     end
     local native_ok, native = pcall(require, "fff.fuzzy")
     if native_ok and type(native) == "table" then
-      vim.health.ok("fff 原生库可加载")
+      vim.health.ok("fff native library loaded successfully")
     else
-      vim.health.warn("fff 原生库不可用: " .. tostring(native))
+      vim.health.warn("fff native library is unavailable: " .. tostring(native))
     end
   else
-    vim.health.info("fff 未安装（可选依赖）；auto 将使用 ripgrep")
+    vim.health.info("fff is not installed (optional); auto will use ripgrep")
   end
   local fallback = require("xue-picker.grep").last_fallback
   if fallback then
-    vim.health.info("最近回退原因: " .. fallback)
+    vim.health.info("Latest fallback reason: " .. fallback)
   end
 end
 return M

@@ -8,10 +8,7 @@ local function decode(value)
 end
 function M.search(opts, query, emit)
   if vim.fn.executable(opts.ripgrep.cmd) ~= 1 then
-    emit(
-      {},
-      { error = "内容搜索需要可用的 fff 或 ripgrep (rg): " .. opts.ripgrep.cmd, done = true }
-    )
+    emit({}, { error = "Content search requires fff or ripgrep (rg): " .. opts.ripgrep.cmd, done = true })
     return function() end
   end
   local args = {

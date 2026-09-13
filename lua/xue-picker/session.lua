@@ -420,7 +420,7 @@ function M.new(opts, restore)
     end
   end
   for name, action in pairs(opts.actions) do
-    assert(type(action) == "function", "actions." .. name .. " 必须是函数")
+    assert(type(action) == "function", "actions." .. name .. " must be a function")
     actions[name] = action
   end
   local keys = require("xue-picker.config").bindings(opts, actions)

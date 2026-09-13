@@ -37,7 +37,7 @@
     {
       "query": "needle",
       "cancel_ms": 0.976833,
-      "fallback": "fff 未安装或未加入 runtimepath",
+      "fallback": "fff is not installed or not in runtimepath",
       "count": 20000,
       "ms": 832.985958,
       "backend": "ripgrep",
@@ -46,7 +46,7 @@
     {
       "query": "absent-24122",
       "cancel_ms": 0.961917,
-      "fallback": "fff 未安装或未加入 runtimepath",
+      "fallback": "fff is not installed or not in runtimepath",
       "count": 0,
       "ms": 126.491208,
       "backend": "ripgrep",

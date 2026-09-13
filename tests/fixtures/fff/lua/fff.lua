@@ -4,7 +4,12 @@ local function mode()
   return vim.env.XUE_TEST_FFF_MODE
 end
 function M.setup() end
-function M.file_search()
+function M.file_search(_, opts)
+  -- Programmatic initialization does not initialize fff's picker UI state.
+  if mode() == "uninitialized_picker_ui" and opts.wait_for_index_ms > 0 then
+    vim.notify("FFF file_search: timeout waiting for index scan", vim.log.levels.ERROR)
+    return { items = {} }
+  end
   if mode() == "init_timeout" then
     vim.uv.sleep(500)
   end
@@ -14,6 +19,7 @@ function M.file_search()
   if mode() == "notify_init" then
     vim.notify("fixture init notification", vim.log.levels.ERROR)
   end
+  M.index_started = true
   return { items = {} }
 end
 function M.content_search(query, opts)

@@ -174,6 +174,8 @@ require("xue-picker").setup({
 
 When using fff, install a version that supports [`content_search()`](https://github.com/dmtrKovalenko/fff#content_searchquery-opts) along with its native library, and ensure its Lua entry point is added to Neovim's `runtimepath`. xue-picker does not invoke fff's picker UI.
 
+With `vim.pack` and deferred loading, load the installed fff package before opening `live_grep` (for example, `:packadd fff`). Installation alone does not add an optional package to `runtimepath`. The worker starts indexing through `file_search()` and waits through the native `wait_for_initial_scan()` API, so readiness does not depend on fff's picker UI being initialized.
+
 `auto` checks the fff interface, native library, and index readiness; it falls back to ripgrep on preparation timeout or unavailability. Explicit `fff` also permits fallback by default; setting `fallback=false` preserves the error panel instead. Sessions that have fallen back stay on ripgrep for the remainder of that session; reopening or resuming checks readiness anew.
 
 The synchronous fff API runs inside an isolated headless Neovim worker, returning paginated results over asynchronous RPC. The worker uses dedicated configuration and cache path `stdpath("cache")/xue-picker/worker/`, loading neither user init nor plugin entry points. Initialization failures, error notifications, API exceptions, request timeouts, and worker exits are all treated as failures; workers are recycled on idle and on exit.

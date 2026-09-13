@@ -23,11 +23,11 @@ function M.request(id, method, args)
     if method == "init" then
       local ok, module = pcall(require, "fff")
       if not ok then
-        error("fff Lua 接口不可用: " .. tostring(module))
+        error("fff Lua API is unavailable: " .. tostring(module))
       end
-      assert(type(module.content_search) == "function", "fff API 不兼容: 缺少 content_search()")
+      assert(type(module.content_search) == "function", "Incompatible fff API: missing content_search()")
       local native_ok, native = pcall(require, "fff.fuzzy")
-      assert(native_ok and type(native) == "table", "fff 原生库不可用: " .. tostring(native))
+      assert(native_ok and type(native) == "table", "fff native library is unavailable: " .. tostring(native))
       fff = module
       fff.setup({
         base_path = args.cwd,
@@ -38,19 +38,24 @@ function M.request(id, method, args)
         logging = { enabled = false, log_file = args.cache .. "/fff.log" },
         grep = { enable_filename_constraint = false },
       })
-      -- A zero-limit file search waits for readiness without scanning contents.
-      assert(type(fff.file_search) == "function", "fff API 不兼容: 缺少 file_search()")
-      fff.file_search("", { cwd = args.cwd, max_results = 1, wait_for_index_ms = args.timeout })
+      -- Start indexing without waiting through fff's uninitialized picker UI state.
+      assert(type(fff.file_search) == "function", "Incompatible fff API: missing file_search()")
+      assert(
+        type(native.wait_for_initial_scan) == "function",
+        "Incompatible fff native library: missing wait_for_initial_scan()"
+      )
+      fff.file_search("", { cwd = args.cwd, max_results = 1, wait_for_index_ms = 0 })
+      assert(native.wait_for_initial_scan(args.timeout), "fff index scan timed out")
       return { ready = true }
     end
-    assert(fff, "fff worker 未初始化")
+    assert(fff, "fff worker is not initialized")
     local result = fff.content_search(args.query, args.opts)
     assert(
       type(result) == "table" and type(result.items) == "table" and type(result.next_file_offset) == "number",
-      "fff content_search 返回值不兼容"
+      "Incompatible fff content_search return value"
     )
     if result.regex_fallback_error and result.regex_fallback_error ~= vim.NIL then
-      return { error = "无效 regex: " .. result.regex_fallback_error, kind = "query" }
+      return { error = "Invalid regex: " .. result.regex_fallback_error, kind = "query" }
     end
     return result
   end)

@@ -7,7 +7,7 @@ vim.fn.mkdir(fixture, "p")
 fixture = vim.uv.fs_realpath(fixture)
 for i = 1, 300 do
   vim.fn.writefile(
-    { "你好 foo Foo", "alpha.beta", "alphaXbeta", "foo", "foo", "foo", "foo" },
+    { "hi🌍 foo Foo", "alpha.beta", "alphaXbeta", "foo", "foo", "foo", "foo" },
     fixture .. "/file" .. i .. ".txt"
   )
 end
@@ -51,7 +51,7 @@ local ok, err = xpcall(function()
   for _, case in ipairs({
     { "foo", "plain" },
     { "Foo", "plain" },
-    { "你好", "plain" },
+    { "hi🌍", "plain" },
     { "alpha.beta", "regex" },
     { "alpha.beta", "plain" },
     { "absent24122", "regex" },

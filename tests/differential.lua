@@ -9,7 +9,7 @@ for _, file in ipairs({ "init", "score", "frecency" }) do
     :wait()
   assert(
     result.code == 0,
-    "固定参考提交不可用，请设置 XUE_REFERENCE 为 minibuffer.nvim checkout"
+    "Pinned reference commit is unavailable; set XUE_REFERENCE to a minibuffer.nvim checkout"
   )
   vim.fn.writefile(
     vim.split(result.stdout, "\n", { plain = true }),
@@ -57,10 +57,10 @@ local texts = {
   "a/foo.lua",
   "b/foo.lua",
   "src\\foo.lua",
-  "文件/你好.lua",
+  "files📁/hi🌍.lua",
   "café.lua",
   "CAFÉ.lua",
-  "emoji/🍵你好.txt",
+  "emoji/🍵hi🌍.txt",
   "dup",
   "dup",
   "file with space.lua",
@@ -104,8 +104,8 @@ local queries = {
   "^",
   "$",
   " | ",
-  "你好",
-  "文",
+  "hi🌍",
+  "📁",
   "café",
   "CAFÉ",
   "🍵",

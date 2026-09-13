@@ -17,7 +17,7 @@ local function stop(worker, reason)
     end
   end
   for _, id in ipairs(ids) do
-    M.reply(id, { error = reason or "fff worker 已退出" })
+    M.reply(id, { error = reason or "fff worker exited" })
   end
 end
 function M.reply(id, result)
@@ -35,7 +35,7 @@ local function request(worker, method, args, timeout, callback)
   local entry = { worker = worker, callback = callback }
   M.pending[id] = entry
   entry.timer = U.later(timeout, function()
-    stop(worker, "fff " .. method .. " 超时")
+    stop(worker, "fff " .. method .. " timed out")
   end)
   local ok = pcall(
     vim.rpcnotify,
@@ -45,7 +45,7 @@ local function request(worker, method, args, timeout, callback)
     { id, method, args }
   )
   if not ok then
-    stop(worker, "fff RPC 发送失败")
+    stop(worker, "Failed to send fff RPC")
   end
   return function()
     local p = M.pending[id]
@@ -77,7 +77,7 @@ local function acquire(opts, callback)
     return function() end
   end
   if worker then
-    stop(worker, "fff 初始化被替换")
+    stop(worker, "fff initialization superseded")
   end
   worker = { key = key }
   M.workers[key] = worker
@@ -100,14 +100,14 @@ local function acquire(opts, callback)
       },
       on_exit = function()
         vim.schedule(function()
-          stop(worker, "fff worker 已退出")
+          stop(worker, "fff worker exited")
         end)
       end,
     }
   )
   if worker.job <= 0 then
     stop(worker)
-    callback(nil, "无法启动 fff headless worker")
+    callback(nil, "Cannot start fff headless worker")
     return function() end
   end
   vim.rpcnotify(
@@ -137,7 +137,7 @@ local function acquire(opts, callback)
   )
   return function()
     if not worker.ready then
-      stop(worker, "fff 初始化取消")
+      stop(worker, "fff initialization cancelled")
     end
   end
 end
@@ -150,12 +150,12 @@ function M.unsupported(opts, query)
     or #opts.globs > 0
     or #opts.ripgrep.args > 0
   then
-    return "fff 无法等价支持当前扫描或过滤选项"
+    return "fff cannot preserve the current scan or filter semantics"
   end
   -- content_search consumes constraint tokens before regex/plain matching.
   -- Route those queries to rg so they retain the literal user-supplied expression.
   if query:find("%s") or query:find("git:", 1, true) or query:find("[!/*?{}]") then
-    return "fff content_search 的约束语法无法等价表达当前查询"
+    return "fff content_search constraint syntax cannot preserve the current query semantics"
   end
 end
 function M.search(opts, query, emit)
@@ -167,7 +167,7 @@ function M.search(opts, query, emit)
     return function() end
   end
   if not M.detect() then
-    emit({}, { error = "fff 未安装或未加入 runtimepath", done = true })
+    emit({}, { error = "fff is not installed or not in runtimepath", done = true })
     return function() end
   end
   local count, offset, seen = 0, 0, {}
@@ -210,11 +210,14 @@ function M.search(opts, query, emit)
               break
             end
             local path = U.path(assert(match.relative_path), opts.cwd)
-            local row = assert(tonumber(match.line_number), "fff 缺少 line_number")
-            local col = assert(tonumber(match.col), "fff 缺少 col")
+            local row = assert(tonumber(match.line_number), "fff is missing line_number")
+            local col = assert(tonumber(match.col), "fff is missing col")
             local ranges = {}
             for _, range in ipairs(match.match_ranges or {}) do
-              assert(type(range[1]) == "number" and type(range[2]) == "number", "fff match_ranges 不兼容")
+              assert(
+                type(range[1]) == "number" and type(range[2]) == "number",
+                "Incompatible fff match_ranges"
+              )
               ranges[#ranges + 1] = { range[1], range[2] }
             end
             if #ranges > 0 then
@@ -248,7 +251,7 @@ function M.search(opts, query, emit)
           end
           local next_offset = result.next_file_offset
           if next_offset ~= 0 and next_offset <= offset then
-            emit({}, { error = "fff 分页偏移未前进", done = true })
+            emit({}, { error = "fff pagination offset did not advance", done = true })
             return
           end
           local done = next_offset == 0 or count >= opts.max_results

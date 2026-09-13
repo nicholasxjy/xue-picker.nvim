@@ -72,6 +72,9 @@ Builtin                                               *xue-picker-builtin*
     按键、动作名称和分隔符分别着色；多个按键以 / 分隔，空间不足时
     只显示每个动作的首个按键。隐藏 open、close、next、previous、preview、
     refresh 提示，快捷键继续生效。错误时仅显示错误信息。
+    hint=true 默认展示提示栏。defaults.hint=false 全局隐藏，
+    pickers.live_grep.hint=false 按 picker 隐藏，单次调用也可传 hint=false。
+    隐藏后该行留给结果/预览，快捷键继续生效。
 
 查询                                                     *xue-picker-query*
     foo bar       AND             foo | bar       OR
@@ -127,6 +130,8 @@ UI 与预览                                               *xue-picker-ui*
     仅返回文本时使用 XuePickerIcon。文件名使用 XuePickerFilename，
     覆盖文件列表、位置路径及分组标题；匹配高亮优先于文件名颜色。
     path_format="filename_first" / "relative" / function(item,cwd)。
+    files/smart 使用 filename_first 时，文件名和状态位于左侧，目录靠
+    结果区域右侧对齐，随预览布局变化；按显示宽度计算，至少保留两个空格。
     自定义 path_format 输出按路径着色；format 回调自行提供高亮范围。
 
     高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Icon、Filename、Directory、

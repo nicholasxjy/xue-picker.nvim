@@ -38,6 +38,16 @@ def snapshot(nvim, name):
     return lines
 
 
+def check_directory_alignment(nvim):
+    nvim.exec_lua("""
+      s.ui:render()
+      local line=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,1,false)[1]
+      local directory='lua/xue-picker/'
+      assert(line:sub(-#directory)==directory)
+      assert(vim.fn.strdisplaywidth(line)==vim.api.nvim_win_get_width(s.ui.wins.list))
+    """)
+
+
 def run():
     faulthandler.dump_traceback_later(20, exit=True)
     nvim = pynvim.attach("child", argv=[os.environ.get("NVIM", "nvim"), "--embed", "-u", "NONE", "-i", "NONE", "--noplugin"])
@@ -53,10 +63,12 @@ def run():
         nvim.input("matcher")
         wait(nvim, "s.query=='matcher' and not s.searching and #s.results>0")
         assert nvim.exec_lua("return s.results[1].text") == "lua/xue-picker/matcher.lua"
+        check_directory_alignment(nvim)
         snapshot(nvim, "ui-files")
         nvim.input("<C-o>")
         wait(nvim, "s.ui.wins.preview ~= nil")
         wait(nvim, "vim.api.nvim_buf_get_lines(s.ui.bufs.preview,0,1,false)[1]:find('Independent',1,true) ~= nil")
+        check_directory_alignment(nvim)
         snapshot(nvim, "ui-preview-wide")
         nvim.exec_lua("vim.api.nvim_echo({{'XUE_MESSAGE_VISIBLE','Normal'}},false,{})")
         lines = snapshot(nvim, "ui-message")
@@ -64,10 +76,12 @@ def run():
         nvim.ui_try_resize(70, 40)
         wait(nvim, "s.ui.width == 70")
         assert nvim.exec_lua("return s.ui.wins.preview ~= nil")
+        check_directory_alignment(nvim)
         snapshot(nvim, "ui-preview-narrow")
         nvim.ui_try_resize(32, 12)
         wait(nvim, "s.ui.width == 32")
         assert nvim.exec_lua("return s.ui.wins.preview == nil")
+        check_directory_alignment(nvim)
         snapshot(nvim, "ui-tiny")
         nvim.input("<Esc>")
         wait(nvim, "s.closed")
@@ -77,8 +91,9 @@ def run():
         wait(nvim, "not s.loading and not s.searching")
         assert nvim.exec_lua("return s.query=='matcher' and s.preview_enabled")
         nvim.exec_lua("s:close(); vim.o.cmdheight=1")
-        nvim.exec_lua("s=require('xue-picker').pick({items={'one','two','three'},keymaps={next={'<C-j>','<Down>'}}})")
+        nvim.exec_lua("s=require('xue-picker').pick({items={'one','two','three'},hint=false,keymaps={next={'<C-j>','<Down>'}}})")
         wait(nvim, "not s.searching and #s.results==3")
+        assert nvim.exec_lua("return s.ui.wins.hint==nil and vim.api.nvim_win_get_height(s.ui.wins.list)==s.ui.height-1")
         nvim.input("<C-j>")
         wait(nvim, "s.index==2")
         nvim.input("<Down>")

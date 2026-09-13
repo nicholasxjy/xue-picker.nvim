@@ -144,6 +144,46 @@ test("filename and icon spans handle Unicode, escaped characters and match prior
   eq({ { text = "x.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
   eq({}, highlighted(s, "XuePickerDirectory"))
 end)
+test("files and smart right-align directories by display width and preserve directory matches", function()
+  for _, builtin in ipairs({ B.files, B.smart }) do
+    local item = U.file(fixture .. "/目录\t/alpha.lua", fixture)
+    item.status = "+"
+    local s = ready(builtin(opts({
+      query = "目",
+      source = function(_, emit)
+        emit({ item }, { replace = true, done = true })
+      end,
+      icons = function()
+        return "📄 ", "Special"
+      end,
+    })))
+    s.git_status[item.path] = " M"
+    local directory = "目录⇥/"
+    for _, width in ipairs({ 120, 60, 32 }) do
+      s.ui.list_width = width
+      eq({ { text = directory, priority = 150 } }, highlighted(s, "XuePickerDirectory"))
+      eq({ { text = "alpha.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+      eq({ { text = "   M", priority = 150 } }, highlighted(s, "XuePickerGit"))
+      local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
+      eq(width, vim.fn.strdisplaywidth(line))
+      eq(directory, line:sub(-#directory))
+      local matches = highlighted(s, "XuePickerMatch")
+      assert(#matches > 0)
+      for _, match in ipairs(matches) do
+        eq("目", match.text)
+      end
+    end
+    s.ui.list_width = 8
+    s.ui:render()
+    local line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
+    assert(line:find("alpha.lua  +   M  " .. directory, 1, true))
+    s.opts.path_format = "relative"
+    s.ui:render()
+    line = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
+    assert(line:find(directory .. "alpha.lua", 1, true))
+    s:close()
+  end
+end)
 test("icons use mini.icons, devicons and custom callback highlight groups", function()
   local mini, devicons = package.loaded["mini.icons"], package.loaded["nvim-web-devicons"]
   local ok, err = xpcall(function()
@@ -297,6 +337,52 @@ test("mapping deduplication, disabling, conflicts before startup", function()
   local ok, err = pcall(picker.pick, { keymaps = { next = "j", previous = "j" } })
   assert(not ok and tostring(err):find("conflict"))
   eq(old, vim.o.cmdheight)
+end)
+test("hint visibility respects configuration precedence and keeps errors and mappings available", function()
+  picker.setup({ defaults = { hint = false }, pickers = { files = { hint = true } } })
+  local s = ready(picker.pick(opts({ items = { "one", "two" } })))
+  eq(nil, s.ui.wins.hint)
+  eq(s.ui.height - 1, api.nvim_win_get_height(s.ui.wins.list))
+  s:act("next")
+  eq(2, s.index)
+  eq({}, highlighted(s, "XuePickerHint", "hint"))
+  s.results, s.error = {}, "visible error"
+  s.ui:render()
+  assert(api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]:find("visible error", 1, true))
+  s:close()
+  s = ready(B.files(opts()))
+  assert(api.nvim_win_is_valid(s.ui.wins.hint))
+  eq(s.ui.height - 2, api.nvim_win_get_height(s.ui.wins.list))
+  s:close()
+  s = ready(B.files(opts({ hint = false })))
+  eq(nil, s.ui.wins.hint)
+end)
+test("hint visibility reclaims preview space and preserves buffers across layout changes", function()
+  local s = ready(B.files(opts({
+    hint = false,
+    layout = { height = 10, wide = 200, min_preview = 2 },
+    preview = { enabled = true },
+  })))
+  eq(nil, s.ui.wins.hint)
+  eq(4, api.nvim_win_get_height(s.ui.wins.preview))
+  s.opts.hint = true
+  s.ui:layout()
+  s.ui:render()
+  local hint_win, hint_buf = s.ui.wins.hint, s.ui.bufs.hint
+  assert(api.nvim_win_is_valid(hint_win))
+  eq(3, api.nvim_win_get_height(s.ui.wins.preview))
+  s.opts.hint, s.opts.layout.wide = false, 40
+  s.ui:layout()
+  s.ui:render()
+  assert(not api.nvim_win_is_valid(hint_win) and api.nvim_buf_is_valid(hint_buf))
+  eq(9, api.nvim_win_get_height(s.ui.wins.list))
+  eq(9, api.nvim_win_get_height(s.ui.wins.preview))
+  s.opts.hint = true
+  s.ui:layout()
+  s.ui:render()
+  eq(hint_buf, api.nvim_win_get_buf(s.ui.wins.hint))
+  s:close()
+  assert(not api.nvim_buf_is_valid(hint_buf))
 end)
 test("fzf-style hints preserve key aliases, literal case and separate key and action highlights", function()
   local s = ready(picker.pick(opts({

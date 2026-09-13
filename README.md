@@ -91,6 +91,7 @@ require("xue-picker").setup({
     preview = { enabled = false, max_bytes = 1024 * 1024, max_lines = 2000 },
     layout = { height = 0.4, max_height = 18, wide = 100 },
     icons = "auto", -- false, function, or installed mini.icons / nvim-web-devicons
+    hint = true, -- false hides the bottom hint bar and gives its row to results/preview
     path_format = "filename_first", -- "relative" or function(item, cwd)
   },
   pickers = {
@@ -101,6 +102,8 @@ require("xue-picker").setup({
 ```
 
 Each action accepts a string or list of strings; `false` or `{}` disables it. Overriding an action replaces all of its keybindings, while other actions are inherited. Keymaps only take effect in insert and normal modes of the picker input buffer, binding only actions supported by the active picker. Duplicate keys within an action are deduplicated, and conflicts across actions error before opening the picker. Bottom hints use fzf-lua's `:: <ctrl-x> to select|<ctrl-s> to split` style, with separate key, action, and separator highlights. They reflect actual mappings, show aliases separated by `/`, and display only the first key of each action when space is constrained. Open, close, next, previous, preview, and refresh are hidden from hints while their shortcuts remain active. Error hints show only the error message.
+
+Set `defaults.hint = false` to hide the hint bar globally, `pickers.live_grep.hint = false` for a specific picker, or pass `{ hint = false }` to a builtin call. Hints default to `true`. Hiding them frees the row for results or the preview; keybindings remain active.
 
 Previews are disabled by default: side-by-side on wide screens, stacked on narrow screens, and hidden when space is insufficient. Loaded buffers take priority to show unsaved modifications; on-disk files are read asynchronously, capped at 1 MiB and 2,000 lines by default, centered around the target location. Binary and oversized files display an informational notice.
 
@@ -144,6 +147,8 @@ require("xue-picker").setup({
 Each supplied group definition replaces the inherited definition, including its `link` and `default` fields; other groups are inherited. Picker-specific and per-call `highlights` follow the usual configuration precedence. Definitions apply globally when a picker opens and are reapplied on `ColorScheme` while it is open. Use `default = true` in an override to preserve an existing definition.
 
 File icons use the highlight returned by mini.icons or nvim-web-devicons. A custom `icons(item)` callback can return `icon_text, highlight_group`; returning only text uses `XuePickerIcon`. Filename coloring applies to file rows, displayed location paths, and group headings, with search matches taking priority. Custom `path_format` output is treated as a path; a custom `format` callback controls all of its own spans.
+
+For `files` and `smart`, `path_format = "filename_first"` places the filename and any status markers on the left, with the directory aligned to the right edge of the results pane. Alignment accounts for icon and Unicode display widths and adjusts with the preview layout. At least two spaces separate the filename/status from the directory when space is constrained.
 
 ## Optional fff Content Search
 

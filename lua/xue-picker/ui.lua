@@ -135,12 +135,15 @@ function M:layout()
   self.height = math.max(3, math.min(opts.layout.max_height, height, math.max(3, vim.o.lines - 4)))
   vim.o.cmdheight = self.height
   self.core.cmdheight = self.height
-  self.width, self.list_height, self.list_width = vim.o.columns, self.height - 2, vim.o.columns
+  local hint_height = opts.hint == false and 0 or 1
+  self.width, self.list_height, self.list_width = vim.o.columns, self.height - 1 - hint_height, vim.o.columns
   local layouts = {
     input = { 0, 0, self.width, 1, true },
     list = { 1, 0, self.width, self.list_height, false },
-    hint = { self.height - 1, 0, self.width, 1, false },
   }
+  if hint_height > 0 then
+    layouts.hint = { self.height - 1, 0, self.width, 1, false }
+  end
   if self.session.preview_enabled and self.width >= 40 then
     if self.width >= opts.layout.wide and self.list_height >= opts.layout.min_preview then
       self.list_width = math.floor(self.width * (1 - opts.layout.preview_width))
@@ -150,7 +153,7 @@ function M:layout()
       local half = math.floor(self.list_height / 2)
       self.list_height = half
       layouts.list[4] = half
-      layouts.preview = { half + 2, 0, self.width, self.height - half - 3, false }
+      layouts.preview = { half + 2, 0, self.width, self.height - half - 2 - hint_height, false }
     end
   end
   for name, layout in pairs(layouts) do
@@ -165,11 +168,13 @@ function M:layout()
       vim.wo[self.wins[name]].wrap = false
     end
   end
-  if not layouts.preview and self.wins.preview then
-    -- Keep the scratch buffer across layout toggles.
-    vim.bo[self.bufs.preview].bufhidden = "hide"
-    pcall(api.nvim_win_close, self.wins.preview, true)
-    self.wins.preview = nil
+  for _, name in ipairs({ "preview", "hint" }) do
+    if not layouts[name] and self.wins[name] then
+      -- Keep scratch buffers across layout toggles.
+      vim.bo[self.bufs[name]].bufhidden = "hide"
+      pcall(api.nvim_win_close, self.wins[name], true)
+      self.wins[name] = nil
+    end
   end
 end
 function M:query(text)
@@ -254,7 +259,7 @@ function M:format(item, index)
     .. " "
     .. (s.selected[item.id] and opts.marker or " ")
     .. " "
-  local text, map, spans = "", {}, {}
+  local text, map, spans, right_directory = "", {}, {}, nil
   if grep and item.lnum then
     local line = ("%" .. (self.line_width or 1) .. "d"):format(item.lnum)
     local column = ("%" .. (self.column_width or 1) .. "d"):format((item.col or 0) + 1)
@@ -278,7 +283,9 @@ function M:format(item, index)
     name = name or item.text
     text = append(text, name, #prefix, map, #item.text - #name)
     spans[#spans + 1] = { #prefix, #prefix + #text, "XuePickerFilename", 100 }
-    if dir then
+    if dir and (opts.name == "files" or opts.name == "smart") then
+      right_directory = dir
+    elseif dir then
       text = text .. "  "
       local start = #prefix + #text
       text = append(text, dir, #prefix, map, 0)
@@ -288,21 +295,6 @@ function M:format(item, index)
     text = append(text, item.text, #prefix, map, 0)
     if item.path and not item.lnum then
       path_spans(text, #prefix, spans)
-    end
-  end
-  if item.ranges then
-    for _, range in ipairs(item.ranges) do
-      for b = range[1], range[2] - 1 do
-        if map[b] then
-          spans[#spans + 1] = { map[b][1], map[b][2], "XuePickerMatch" }
-        end
-      end
-    end
-  elseif s.ranker then
-    for b in pairs(s.ranker:byte_positions(s.query, item)) do
-      if map[b] then
-        spans[#spans + 1] = { map[b][1], map[b][2], "XuePickerMatch" }
-      end
     end
   end
   if item.lnum then
@@ -322,6 +314,29 @@ function M:format(item, index)
     local start = #prefix + #text
     text = text .. "  " .. s.git_status[item.path]
     spans[#spans + 1] = { start, #prefix + #text, "XuePickerGit" }
+  end
+  if right_directory then
+    local gap =
+      math.max(2, self.list_width - vim.fn.strdisplaywidth(prefix .. text .. U.clean(right_directory)))
+    text = text .. string.rep(" ", gap)
+    local start = #prefix + #text
+    text = append(text, right_directory, #prefix, map, 0)
+    spans[#spans + 1] = { start, #prefix + #text, "XuePickerDirectory" }
+  end
+  if item.ranges then
+    for _, range in ipairs(item.ranges) do
+      for b = range[1], range[2] - 1 do
+        if map[b] then
+          spans[#spans + 1] = { map[b][1], map[b][2], "XuePickerMatch" }
+        end
+      end
+    end
+  elseif s.ranker then
+    for b in pairs(s.ranker:byte_positions(s.query, item)) do
+      if map[b] then
+        spans[#spans + 1] = { map[b][1], map[b][2], "XuePickerMatch" }
+      end
+    end
   end
   return prefix .. text, spans
 end
@@ -455,6 +470,9 @@ function M:render()
       0,
       { virt_text = { { count, "XuePickerCount" } }, virt_text_pos = "right_align" }
     )
+  end
+  if s.opts.hint == false then
+    return
   end
   local labels = {
     accept = false,

@@ -92,6 +92,7 @@ require("xue-picker").setup({
         link = "FzfLuaFzfCursorLine",
       },
     },
+    hint = true,
     icons = "auto",
     keymaps = {
       accept = { "<CR>", "<C-y>" },

@@ -433,8 +433,8 @@ function M:render()
     end
   end
   if #lines == 0 then
-    lines =
-      { "  " .. (s.error or (s.loading and "加载中…" or s.searching and "搜索中…" or "无结果")) }
+    local message = s.error or (s.loading and "加载中…" or s.searching and "搜索中…" or "无结果")
+    lines = { grep and not s.error and (s.loading or s.searching) and "" or "  " .. message }
   end
   while #lines < height do
     lines[#lines + 1] = ""
@@ -470,7 +470,9 @@ function M:render()
     0,
     { virt_text = { { U.clean(s.opts.prompt), "XuePickerPrompt" } }, virt_text_pos = "inline" }
   )
-  local status = s.error and "失败" or s.loading and "加载" or s.searching and "搜索" or ""
+  local status = s.error and "失败"
+    or not grep and (s.loading and "加载" or s.searching and "搜索")
+    or ""
   local count = (" %s%s %d/%d%s "):format(
     s.backend and s.backend .. " · " or "",
     status,

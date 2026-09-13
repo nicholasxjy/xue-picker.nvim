@@ -67,7 +67,6 @@ function M.update(s)
       s.ui:preview({ item.text or "无预览" })
       return
     end
-    s.ui:preview({ "读取中…" })
     vim.uv.fs_stat(
       item.path,
       vim.schedule_wrap(function(err, stat)

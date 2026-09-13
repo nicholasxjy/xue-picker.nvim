@@ -301,55 +301,41 @@ end)
 test("fzf-style hints preserve key aliases, literal case and separate key and action highlights", function()
   local s = ready(picker.pick(opts({
     items = { "foo" },
-    actions = { custom = function() end, ["自定义"] = function() end },
+    actions = { custom = function() end, ["自定义"] = function() end, preview = function() end },
     keymaps = {
-      next = false,
-      previous = false,
-      refresh = false,
       custom = { "Z", "z" },
       ["自定义"] = "<M-j>",
     },
   })))
   s.ui.width = 1000
   eq({
-    { text = "<enter>", priority = 150 },
-    { text = "<ctrl-y>", priority = 150 },
-    { text = "<esc>", priority = 150 },
-    { text = "<ctrl-c>", priority = 150 },
     { text = "<Z>", priority = 150 },
     { text = "<z>", priority = 150 },
     { text = "<alt-j>", priority = 150 },
   }, highlighted(s, "XuePickerHintBind", "hint"))
   eq({
-    { text = "open", priority = 150 },
-    { text = "close", priority = 150 },
     { text = "custom", priority = 150 },
     { text = "自定义", priority = 150 },
   }, highlighted(s, "XuePickerHint", "hint"))
-  eq(
-    ":: <enter>/<ctrl-y> to open|<esc>/<ctrl-c> to close|<Z>/<z> to custom|<alt-j> to 自定义",
-    api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1]
-  )
+  eq(":: <Z>/<z> to custom|<alt-j> to 自定义", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   eq("FzfLuaHeaderBind", api.nvim_get_hl(0, { name = "XuePickerHintBind" }).link)
   eq("FzfLuaHeaderText", api.nvim_get_hl(0, { name = "XuePickerHint" }).link)
   s.ui.width = 32
   s.ui:render()
-  eq(
-    ":: <enter> to open|<esc> to close|<Z> to custom|<alt-j> to 自定义",
-    api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1]
-  )
+  eq(":: <Z> to custom|<alt-j> to 自定义", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
   eq({ "Z", "z" }, s.keys.custom)
+  for _, name in ipairs({ "accept", "close", "next", "previous", "preview", "refresh" }) do
+    assert(s.keys[name] and #s.keys[name] > 0, name .. " shortcut must remain active")
+  end
 end)
-test("error hints style retry keys separately and omit disabled recovery actions", function()
-  local s = ready(picker.pick(opts({ items = { "foo" }, keymaps = { close = false, refresh = "<C-r>" } })))
+test("error hints show the message while recovery shortcuts remain active and hidden", function()
+  local s = ready(picker.pick(opts({ items = { "foo" } })))
   s.error, s.ui.width = "错误\nretry failed", 1000
-  eq({ { text = "<ctrl-r>", priority = 150 } }, highlighted(s, "XuePickerHintBind", "hint"))
-  eq({ { text = "retry", priority = 150 } }, highlighted(s, "XuePickerHint", "hint"))
+  eq({}, highlighted(s, "XuePickerHintBind", "hint"))
+  eq({}, highlighted(s, "XuePickerHint", "hint"))
   eq({ { text = "错误↵retry failed", priority = 150 } }, highlighted(s, "XuePickerError", "hint"))
-  eq(":: <ctrl-r> to retry|错误↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
-  s.keys.refresh = nil
-  s.ui:render()
   eq(":: 错误↵retry failed", api.nvim_buf_get_lines(s.ui.bufs.hint, 0, 1, false)[1])
+  assert(#s.keys.close > 0 and #s.keys.refresh > 0)
 end)
 test("custom actions and local keymaps are cleaned", function()
   local value = 0

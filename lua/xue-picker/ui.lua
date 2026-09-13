@@ -457,13 +457,13 @@ function M:render()
     )
   end
   local labels = {
-    accept = "open",
-    close = "close",
-    next = "next",
-    previous = "previous",
+    accept = false,
+    close = false,
+    next = false,
+    previous = false,
     toggle = "select",
-    preview = "preview",
-    refresh = "refresh",
+    preview = false,
+    refresh = false,
     delete = "delete",
     split = "split",
     vsplit = "vsplit",
@@ -471,13 +471,7 @@ function M:render()
     toggle_all = "select all",
   }
   local names = {
-    "accept",
-    "close",
-    "next",
-    "previous",
     "toggle",
-    "preview",
-    "refresh",
     "delete",
     "split",
     "vsplit",
@@ -485,12 +479,12 @@ function M:render()
     "toggle_all",
   }
   for _, name in ipairs(vim.fn.sort(vim.tbl_keys(s.keys))) do
-    if not labels[name] then
+    if labels[name] == nil then
       names[#names + 1] = name
     end
   end
   if s.error then
-    names, labels.refresh = { "close", "refresh" }, "retry"
+    names = {}
   end
   local function hints(first_only)
     local text, spans = "", {}

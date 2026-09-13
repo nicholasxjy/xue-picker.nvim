@@ -60,6 +60,62 @@ local ok, err = xpcall(function()
     local actual = search("fff", unpack(case))
     assert(vim.deep_equal(expected, actual), "backend mismatch for " .. case[1])
   end
+  local fff = require("fff")
+  fff.setup({
+    base_path = fixture,
+    frecency = { enabled = false },
+    history = { enabled = false },
+    logging = { enabled = false },
+  })
+  fff.file_search("", { cwd = fixture, max_results = 1, wait_for_index_ms = 0 })
+  assert(require("fff.fuzzy").wait_for_initial_scan(10000))
+  local file_opts = require("xue-picker.config").resolve("smart", { cwd = fixture, max_results = 17 })
+  local ctx = { session = { origin = { buf = vim.api.nvim_get_current_buf() } } }
+  for _, query in ipairs({
+    "",
+    "file12",
+    "flie12",
+    "file2 *.txt",
+    "*.txt !file1*",
+    "file12.txt:3:2",
+    "absent24122",
+  }) do
+    local expected = fff.file_search(query, { cwd = fixture, max_results = file_opts.max_results })
+    local actual, state
+    ctx.query = query
+    local start = vim.uv.hrtime()
+    local cancel = require("xue-picker.sources.fff").search(file_opts, ctx, function(items, info)
+      actual, state = items, info
+    end)
+    assert(
+      vim.wait(30000, function()
+        return state ~= nil
+      end, 1),
+      "real fff file_search timeout"
+    )
+    cancel()
+    assert(not state.error, state.error)
+    assert(#actual == #expected.items, "file count mismatch for " .. query)
+    assert(state.truncated == (expected.total_matched > #expected.items))
+    for i, item in ipairs(actual) do
+      assert(
+        item.path == fixture .. "/" .. expected.items[i].relative_path,
+        "file order mismatch for " .. query
+      )
+      assert(item.score == expected.scores[i].total, "score mismatch for " .. query)
+      assert(vim.deep_equal(item.ranges, expected.items[i].match_ranges), "highlights mismatch for " .. query)
+      if expected.location then
+        assert(item.lnum == expected.location.line)
+        assert(item.col == (expected.location.col or 1) - 1)
+      end
+    end
+    report[#report + 1] = {
+      backend = "fff-files",
+      query = query,
+      count = #actual,
+      ms = (vim.uv.hrtime() - start) / 1e6,
+    }
+  end
 end, debug.traceback)
 require("xue-picker.grep.fff").shutdown()
 vim.fn.delete(fixture, "rf")

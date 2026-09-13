@@ -345,11 +345,12 @@ test("files and smart align directories to the longest visible row independently
     item.status = "+"
     local second_directory = "very-long-directory/🌍/"
     local second = U.file(fixture .. "/" .. second_directory .. "b.lua", fixture)
+    item.ranges, second.ranges = { { 3, 7 } }, { { 20, 24 } }
     local s = ready(builtin(opts({
       query = "🌍",
       sort = false,
-      source = function(_, emit)
-        emit({ item, second }, { replace = true, done = true })
+      source = function(ctx, emit)
+        emit(ctx.query == "alpha" and { item } or { item, second }, { replace = true, done = true })
       end,
       icons = function()
         return "📄 ", "Special"
@@ -783,19 +784,16 @@ test("oldfiles validity, deduplication, cwd filtering", function()
   eq(1, #s.items)
   eq(fixture .. "/beta.txt", s.items[1].path)
 end)
-test("smart merges open/recent/directory files by absolute path", function()
-  vim.v.oldfiles = { fixture .. "/beta.txt", fixture .. "/src/alpha.lua" }
-  vim.cmd({ cmd = "edit", args = { fixture .. "/src/alpha.lua" } })
-  local s = ready(B.smart(opts()))
-  local count = 0
-  for _, item in ipairs(s.items) do
-    if item.path == fixture .. "/src/alpha.lua" then
-      count = count + 1
-      assert(item.info)
-    end
-  end
-  eq(1, count)
-  assert(s.ranker.frecency)
+test("smart reports missing fff without reverting to local matching", function()
+  local s = B.smart(opts())
+  await(function()
+    return s.started and not s.loading and not s.searching and not s.preparing
+  end)
+  assert(s.error:find("smart requires fff", 1, true))
+  eq("fff", s.backend)
+  eq(0, #s.results)
+  eq(nil, s.ranker)
+  assert(not s.closed)
 end)
 test("buffers includes unnamed, status and modified protection", function()
   vim.cmd("enew")
@@ -1521,6 +1519,100 @@ test("missing fff falls back, missing both remains retryable", function()
   assert(#s.results > 0)
 end)
 vim.opt.rtp:append(vim.fn.getcwd() .. "/tests/fixtures/fff")
+test("smart preserves fff ordering, typo matches, constraints and byte highlights", function()
+  vim.v.oldfiles = { fixture .. "/.hidden" }
+  local s = ready(B.smart(opts({
+    scan = { cmd = "xue-nonexistent-rg" },
+    matcher = function()
+      error("smart must not run a local matcher")
+    end,
+    git = { enabled = true, modified_bonus = true },
+  })))
+  eq("fff", s.backend)
+  eq(nil, s.ranker)
+  eq(
+    { "beta.txt", "src/alpha.lua" },
+    vim.tbl_map(function(item)
+      return item.text
+    end, s.results)
+  )
+  eq(7, s.results[1].score)
+  eq(999, s.results[2].score)
+  eq(nil, s.ids[fixture .. "/.hidden"])
+  s:set_query("alpah *.lua !test/")
+  ready(s)
+  eq(1, #s.results)
+  eq(fixture .. "/src/alpha.lua", s.results[1].path)
+  eq({ { 4, 9 } }, s.results[1].ranges)
+  assert(#highlighted(s, "XuePickerMatch") > 0)
+  s:set_query("absent24122")
+  ready(s)
+  eq(0, #s.results)
+  s:set_query("")
+  await(function()
+    return #s.results == 2 and not s.loading and not s.searching
+  end)
+  s:close()
+  s = ready(picker.resume())
+  eq(2, #s.results)
+  eq(nil, s.ranker)
+end)
+test("smart passes the invoking file, caps results and opens fff locations", function()
+  vim.cmd({ cmd = "edit", args = { fixture .. "/src/alpha.lua" } })
+  local s = ready(B.smart(opts({ query = "current", max_results = 1 })))
+  eq("beta.txt", s.results[1].text)
+  assert(not s.truncated)
+  s:set_query("all")
+  ready(s)
+  eq(1, #s.results)
+  assert(s.truncated)
+  s:set_query("alpha.lua:3:2")
+  ready(s)
+  eq(3, s.results[1].lnum)
+  eq(1, s.results[1].col)
+  s:accept("edit")
+  eq(fixture .. "/src/alpha.lua", api.nvim_buf_get_name(0))
+  eq({ 3, 1 }, api.nvim_win_get_cursor(0))
+end)
+test("smart ignores stale searches and releases workers after closing", function()
+  local s = ready(B.smart(opts({ debounce_ms = 0, fff = { idle_timeout_ms = 10 } })))
+  s:set_query("slow")
+  vim.wait(40, function()
+    return false
+  end)
+  s:set_query("alpah *.lua !test/")
+  ready(s)
+  eq(1, #s.results)
+  eq("src/alpha.lua", s.results[1].text)
+  s:close()
+  await(function()
+    return next(require("xue-picker.grep.fff").workers) == nil
+  end)
+end)
+for _, failure in ipairs({
+  "missing_file_search",
+  "file_error",
+  "file_notify",
+  "file_bad_response",
+  "file_timeout",
+}) do
+  test("smart surfaces fff failure: " .. failure, function()
+    vim.env.XUE_TEST_FFF_MODE = failure
+    local s = B.smart(opts({ fff = { request_timeout_ms = 40 } }))
+    await(function()
+      return s.started and not s.loading and not s.searching and not s.preparing
+    end)
+    assert(s.error)
+    eq("fff", s.backend)
+    eq(0, #s.results)
+    assert(not s.closed)
+  end)
+end
+test("smart only requires the file API", function()
+  vim.env.XUE_TEST_FFF_MODE = "incompatible"
+  local s = ready(B.smart(opts()))
+  eq(2, #s.results)
+end)
 test("fff worker waits for the native index without initializing picker UI", function()
   vim.env.XUE_TEST_FFF_MODE = "uninitialized_picker_ui"
   local s = search("fff", "foo", { fallback = false })

@@ -92,7 +92,10 @@ M.pickers = {
     cwd_prompt = true,
     cwd_prompt_shorten_len = 32,
     cwd_prompt_shorten_val = 1,
-    matcher = { frecency = true },
+    matcher = false,
+    debounce_ms = 30,
+    max_results = 20000,
+    fff = { ready_timeout_ms = 10000, request_timeout_ms = 1000, idle_timeout_ms = 60000 },
     filter = { cwd = true },
   },
   diagnostics = {

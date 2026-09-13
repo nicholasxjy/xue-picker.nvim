@@ -68,8 +68,8 @@ function M.shutdown()
     stop(worker)
   end
 end
-local function acquire(opts, callback)
-  local key = opts.cwd .. "\0" .. vim.o.runtimepath
+local function acquire(opts, callback, files)
+  local key = opts.cwd .. "\0" .. vim.o.runtimepath .. "\0" .. (files and "files" or "grep")
   local worker = M.workers[key]
   if worker and worker.ready and not worker.closed then
     U.stop(worker.idle)
@@ -123,7 +123,7 @@ local function acquire(opts, callback)
   request(
     worker,
     "init",
-    { cwd = opts.cwd, cache = cache, timeout = opts.fff.ready_timeout_ms },
+    { cwd = opts.cwd, cache = cache, timeout = opts.fff.ready_timeout_ms, files = files or false },
     opts.fff.ready_timeout_ms,
     function(result)
       if result.error then
@@ -138,6 +138,58 @@ local function acquire(opts, callback)
   return function()
     if not worker.ready then
       stop(worker, "fff initialization cancelled")
+    end
+  end
+end
+-- File searches share the asynchronous transport, with no grep fallback or query rewriting.
+function M.file_search(opts, query, current_file, callback)
+  if not M.detect() then
+    callback({ error = "smart requires fff with file_search() and its native library in runtimepath" })
+    return function() end
+  end
+  local cancelled, cancel_request, worker = false, nil, nil
+  local cancel_init = acquire(opts, function(value, err)
+    if cancelled then
+      return
+    end
+    if err then
+      callback({ error = err })
+      return
+    end
+    worker = value
+    cancel_request = request(
+      worker,
+      "file_search",
+      {
+        query = query,
+        opts = {
+          cwd = opts.cwd,
+          mode = "files",
+          max_results = opts.max_results,
+          page = 0,
+          current_file = current_file,
+          wait_for_index_ms = 0,
+        },
+      },
+      opts.fff.request_timeout_ms,
+      function(result)
+        if not cancelled then
+          callback(result)
+        end
+      end
+    )
+  end, true)
+  return function()
+    cancelled = true
+    if cancel_request then
+      cancel_request()
+    end
+    cancel_init()
+    if worker and not worker.closed then
+      U.stop(worker.idle)
+      worker.idle = U.later(opts.fff.idle_timeout_ms, function()
+        stop(worker)
+      end)
     end
   end
 end

@@ -17,6 +17,11 @@ function M.check()
   if fff.detect() then
     vim.health.ok("fff Lua entry point: " .. fff.detect())
     local ok, api = pcall(require, "fff")
+    if ok and type(api.file_search) == "function" then
+      vim.health.ok("fff file_search() API is available for smart")
+    else
+      vim.health.warn("smart requires the fff file_search() API")
+    end
     if ok and type(api.content_search) == "function" then
       vim.health.ok("fff content_search() API is available")
     else
@@ -29,7 +34,7 @@ function M.check()
       vim.health.warn("fff native library is unavailable: " .. tostring(native))
     end
   else
-    vim.health.info("fff is not installed (optional); auto will use ripgrep")
+    vim.health.warn("fff is not installed; smart requires it, while live_grep auto will use ripgrep")
   end
   local fallback = require("xue-picker.grep").last_fallback
   if fallback then

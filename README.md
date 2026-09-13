@@ -2,13 +2,18 @@
 
 A bottom-docked picker built on Neovim's `vim._core.ui2` command-line area. Supports smart file finding, asynchronous content search, multi-selection quickfix export, toggleable previews, and `vim.ui` adaptations.
 
-Requires **Neovim 0.12+** and **ripgrep (`rg`)**. Automatically initializes `ui2` if it is not already active; reuses existing configuration if it is. `ui2` is an experimental internal API, and capabilities are checked at startup. Run `:checkhealth xue-picker` to inspect dependencies and recent grep fallback reasons.
+Requires **Neovim 0.12+**. **fff** with its native library is required for `smart`; **ripgrep (`rg`)** is required for `files` and grep fallback. Automatically initializes `ui2` if it is not already active; reuses existing configuration if it is. `ui2` is an experimental internal API, and capabilities are checked at startup. Run `:checkhealth xue-picker` to inspect dependencies and recent grep fallback reasons.
 
 ## Installation
 
 ```lua
 -- Neovim built-in vim.pack
-vim.pack.add({ "https://github.com/nicholasxjy/xue-picker.nvim" })
+vim.pack.add({
+  "https://github.com/dmtrKovalenko/fff",
+  "https://github.com/nicholasxjy/xue-picker.nvim",
+})
+-- Run once after installing/updating fff to download or build its native library:
+-- require("fff.download").download_or_build_binary()
 
 -- setup() is optional.
 require("xue-picker").setup({})
@@ -23,7 +28,7 @@ vim.keymap.set("n", "<leader>fd", builtin.diagnostics)
 vim.keymap.set("n", "<leader>fr", require("xue-picker").resume)
 ```
 
-With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", opts = {} }`. Ready to use once `rg` is installed; the plugin does not automatically install or compile optional dependencies.
+With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", dependencies = { { "dmtrKovalenko/fff", build = function() require("fff.download").download_or_build_binary() end } }, opts = {} }`. xue-picker does not install or compile dependencies itself.
 
 ## Builtins
 
@@ -32,7 +37,7 @@ With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", opts = {} }`. Ready to use
 | Name | Default Behavior and Common Options |
 | --- | --- |
 | `files` | Files in `cwd`, fuzzy and filename weighting, without mixing in history. |
-| `smart` | Merges directory files, normal listed buffers, and valid recent files; deduplicates by absolute path, applies cwd/frecency weighting, `filter.cwd=true`. |
+| `smart` | Live fff `file_search()` in `cwd`, using fff's fuzzy matching, ranking and highlights; `max_results=20000`, `debounce_ms=30`. Requires fff. |
 | `buffers` | fzf-lua rows with a fixed current-buffer header and recent-first ordering; `[number]`, `%/#`, `a/h`, `=`, `+`, icon, path and saved line. Includes listed, unnamed and terminal buffers; `show_unlisted=true` includes other unlisted buffers. Deletion protects unsaved changes unless `force=true`. |
 | `live_grep` | regex, smartcase, grouped by file; `backend`, `mode`, `globs`, and `max_results` are configurable. |
 | `grep_word` | Opens `live_grep` with the word under the cursor and literal matching (`mode="plain"`); inherits `live_grep` settings and accepts its options. |
@@ -134,7 +139,9 @@ renders with unchanged state do not emit another event.
 
 ## Query Syntax and Sorting
 
-`files`, `smart`, and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102).
+`smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. Results come from fff's index in `cwd`; buffers and oldfiles are no longer merged. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
+
+`files` and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102). The following syntax and scoring settings apply to these local pickers:
 
 | Query | Meaning |
 | --- | --- |
@@ -148,7 +155,7 @@ renders with unchanged state do not emit another event.
 
 Default smartcase matches the reference implementation: all-lowercase queries ignore ASCII case, while uppercase characters trigger case sensitivity. Unicode characters are matched and scored by UTF-8 bytes, and highlights never split characters; this is not Unicode case folding. Sorting order is descending score, ascending byte length of logical text, and ascending original `idx`. By default, `history_bonus` and Git modified weighting are disabled. `git.modified_bonus=true` adds 20 bonus points, or a custom score can be provided.
 
-`smart` frecency uses a 30-day half-life, capped at 10,000 entries, lazily and atomically persisted to `stdpath("data")/xue-picker/frecency.json`; corrupted data is automatically ignored. `files` does not use frecency by default.
+Local pickers can enable `matcher.frecency=true`: it uses a 30-day half-life, capped at 10,000 entries, lazily and atomically persisted to `stdpath("data")/xue-picker/frecency.json`; corrupted data is automatically ignored. `files` does not use frecency by default. `smart` does not use this local history.
 
 ## Configuration and Keymaps
 
@@ -193,7 +200,7 @@ require("xue-picker").setup({
     path_format = "filename_first", -- "relative" or function(item, cwd)
   },
   pickers = {
-    smart = { filter = { cwd = true }, matcher = { frecency = true } },
+    smart = { max_results = 20000, debounce_ms = 30 },
   },
   ui = { select = false, input = false },
 })
@@ -296,7 +303,7 @@ require("xue-picker").setup({
 
 When using fff, install a version that supports [`content_search()`](https://github.com/dmtrKovalenko/fff#content_searchquery-opts) along with its native library, and ensure its Lua entry point is added to Neovim's `runtimepath`. xue-picker does not invoke fff's picker UI.
 
-With `vim.pack` and deferred loading, load the installed fff package before opening `live_grep` (for example, `:packadd fff`). Installation alone does not add an optional package to `runtimepath`. The worker starts indexing through `file_search()` and waits through the native `wait_for_initial_scan()` API, so readiness does not depend on fff's picker UI being initialized.
+With `vim.pack` and deferred loading, load the installed fff package before opening `smart` or using fff for `live_grep` (for example, `:packadd fff`). Installation alone does not add an optional package to `runtimepath`. The worker starts indexing through `file_search()` and waits through the native `wait_for_initial_scan()` API, so readiness does not depend on fff's picker UI being initialized.
 
 `auto` checks the fff interface, native library, and index readiness; it falls back to ripgrep on preparation timeout or unavailability. Explicit `fff` also permits fallback by default; setting `fallback=false` preserves the error panel instead. Sessions that have fallen back stay on ripgrep for the remainder of that session; reopening or resuming checks readiness anew.
 
@@ -374,4 +381,4 @@ The file cache keeps up to 3 cwds and 200,000 entries in total, keyed by scan op
 
 ## License
 
-MIT, retaining the original repository license. Implemented independently from minibuffer.nvim; query scoring behavior is benchmarked against the specified commit, and scoring constants match fzf's published algorithm. Optional fff dependencies are subject to their own respective licenses.
+MIT, retaining the original repository license. Implemented independently from minibuffer.nvim; local query scoring behavior is benchmarked against the specified commit, and scoring constants match fzf's published algorithm. fff dependencies are subject to their own respective licenses.

@@ -71,66 +71,10 @@ function M.files(opts)
 end
 function M.smart(opts)
   return launch("smart", opts, function(o)
+    o.live, o.matcher = true, false
     o.source = o.source
-      or function(_, emit)
-        local stopped, files, old, state, merge_cancel = false, nil, nil, nil, nil
-        local function publish()
-          if stopped or not files then
-            return
-          end
-          if merge_cancel then
-            merge_cancel()
-          end
-          merge_cancel = U.work(function(checkpoint)
-            local items, seen = {}, {}
-            local function add(item)
-              if item and not seen[item.path] then
-                seen[item.path] = true
-                items[#items + 1] = item
-              end
-              checkpoint()
-            end
-            for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
-              if vim.bo[info.bufnr].buftype == "" and info.name ~= "" then
-                local item = U.file(info.name, o.cwd)
-                item.info, item.bufnr = info, info.bufnr
-                add(item)
-              end
-            end
-            for _, item in ipairs(old or {}) do
-              add(item)
-            end
-            for _, item in ipairs(files) do
-              add(item)
-            end
-            return items
-          end, function(items, err)
-            emit(
-              items or {},
-              require("xue-picker.config").merge(state, {
-                loading = not old or state.loading == true,
-                done = old ~= nil and state.done,
-                error = err or state.error,
-              })
-            )
-          end, o.performance.slice_ms)
-        end
-        local cancel_recent = recent(o, function(items)
-          old = items
-          publish()
-        end)
-        local cancel_files = require("xue-picker.sources.files").scan(o, function(items, info)
-          files, state = items, info
-          publish()
-        end)
-        return function()
-          stopped = true
-          cancel_recent()
-          cancel_files()
-          if merge_cancel then
-            merge_cancel()
-          end
-        end
+      or function(ctx, emit)
+        return require("xue-picker.sources.fff").search(o, ctx, emit)
       end
   end)
 end

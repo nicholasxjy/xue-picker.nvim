@@ -323,12 +323,17 @@ require("xue-picker").setup({
       cwd_prompt = true,
       cwd_prompt_shorten_len = 32,
       cwd_prompt_shorten_val = 1,
+      debounce_ms = 30,
+      fff = {
+        idle_timeout_ms = 60000,
+        ready_timeout_ms = 10000,
+        request_timeout_ms = 1000,
+      },
       filter = {
         cwd = true,
       },
-      matcher = {
-        frecency = true,
-      },
+      matcher = false,
+      max_results = 20000,
       prompt = "Files> ",
     },
     ui_input = {

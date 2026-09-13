@@ -61,7 +61,7 @@ function Session:rank()
     if type(self.opts.matcher) == "function" then
       return self.opts.matcher(query, self.items, checkpoint)
     end
-    if self.opts.live then
+    if self.opts.live or not self.ranker then
       result = self.items
     else
       result = self.ranker:rank(query, self.items, checkpoint)
@@ -524,7 +524,9 @@ function M.new(opts, restore)
         if matcher_opts.frecency == true then
           matcher_opts.frecency = require("xue-picker.frecency").default(opts.frecency)
         end
-        self.ranker = require("xue-picker.matcher").new(matcher_opts)
+        if opts.matcher ~= false then
+          self.ranker = require("xue-picker.matcher").new(matcher_opts)
+        end
         if
           opts.icons == "auto"
           and not package.loaded["mini.icons"]
@@ -544,7 +546,7 @@ function M.new(opts, restore)
           self.cancel_git = require("xue-picker.sources.files").git(opts, function(statuses)
             if not self.closed then
               self.git_status = statuses
-              if opts.git.modified_bonus then
+              if opts.git.modified_bonus and self.ranker then
                 self.ranker.git_status = statuses
                 self.ranker.bonuses = setmetatable({}, { __mode = "k" })
                 self:rank()

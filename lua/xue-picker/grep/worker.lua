@@ -25,7 +25,9 @@ function M.request(id, method, args)
       if not ok then
         error("fff Lua API is unavailable: " .. tostring(module))
       end
-      assert(type(module.content_search) == "function", "Incompatible fff API: missing content_search()")
+      if not args.files then
+        assert(type(module.content_search) == "function", "Incompatible fff API: missing content_search()")
+      end
       local native_ok, native = pcall(require, "fff.fuzzy")
       assert(native_ok and type(native) == "table", "fff native library is unavailable: " .. tostring(native))
       fff = module
@@ -49,6 +51,14 @@ function M.request(id, method, args)
       return { ready = true }
     end
     assert(fff, "fff worker is not initialized")
+    if method == "file_search" then
+      local result = fff.file_search(args.query, args.opts)
+      assert(
+        type(result) == "table" and type(result.items) == "table" and type(result.total_matched) == "number",
+        "Incompatible fff file_search return value"
+      )
+      return result
+    end
     local result = fff.content_search(args.query, args.opts)
     assert(
       type(result) == "table" and type(result.items) == "table" and type(result.next_file_offset) == "number",

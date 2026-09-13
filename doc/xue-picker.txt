@@ -1,6 +1,7 @@
 *xue-picker.txt*  Bottom picker                                  *xue-picker*
 
 Requires Neovim 0.12+, vim._core.ui2, ripgrep, and an attached Neovim UI.
+smart also requires fff's file_search() API and native library in runtimepath.
 
 Commands                                                        *:XuePicker*
     :XuePicker [name]        Defaults to smart; supports name completion.
@@ -91,8 +92,14 @@ Statusline                                            *xue-picker-statusline*
 
 Builtins                                                *xue-picker-builtin*
     files: Directory files, without history.
-    smart: Combines directory, open, and valid recent files;
-        deduplicates by absolute path. filter.cwd=true, matcher.frecency=true.
+    smart: Live fff file_search() in cwd, preserving fff's matching, ranking,
+        byte highlights and :line:col locations. Empty queries list indexed files.
+        Buffers and oldfiles are not merged. No local fuzzy matcher or scoring.
+        Queries use fff syntax, including *.lua, !test/ and git:modified.
+        scan and local matcher options do not apply. Hidden files are indexed;
+        ignore files are respected. max_results=20000, debounce_ms=30.
+        fff.ready_timeout_ms=10000, request_timeout_ms=1000, idle_timeout_ms=60000.
+        Searches run in an isolated worker. Missing/failing fff displays an error.
     buffers: Listed buffers, including unnamed and terminal buffers.
         The current buffer is included even if unlisted. Quickfix and the
         picker's own buffers are excluded. show_unlisted=true includes other
@@ -188,6 +195,9 @@ Keymaps                                                 *xue-picker-keymaps*
     and picker opening.
 
 Queries                                                   *xue-picker-query*
+    These local matching options apply to files and other local pickers.
+    smart uses fff query syntax and ranking instead; see |xue-picker-builtin|.
+
     foo bar       AND             foo | bar       OR
     !test         Exclude         'foo            Exact substring
     'foo'         Whole word      ^foo / lua$     Start/end anchors
@@ -219,8 +229,8 @@ Grep backends                                              *xue-picker-grep*
     and cancellation do not trigger fallback.
     Invalid regex queries display an error without literal fallback.
 
-    fff is optional and must provide content_search()/file_search() and its native
-    library. Synchronous searches run in an isolated headless Neovim worker,
+    For live_grep, fff is optional and must provide content_search()/file_search()
+    and its native library. Synchronous searches run in an isolated headless worker,
     with pagination over asynchronous RPC.
     Workers load neither user init nor plugin entry points, use isolated config
     and cache directories, and are recycled when idle.

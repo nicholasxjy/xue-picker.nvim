@@ -17,11 +17,18 @@ function M.search(opts, ctx, emit)
         local location = type(result.location) == "table" and result.location or nil
         location = location and (location.start or location)
         for i, match in ipairs(result.items) do
-          local item = U.file(assert(match.relative_path), opts.cwd)
+          local kind = match.type or (opts.mode == "directories" and "directory" or "file")
+          local path = assert(match.relative_path)
+          -- fff represents the indexed root directory with an empty relative path.
+          local item = U.file(kind == "directory" and path == "" and "." or path, opts.cwd)
+          item.type = kind
+          if item.text == "" then
+            item.text = "."
+          end
           local score = result.scores and result.scores[i]
           item.score = type(score) == "table" and score.total or nil
           item.ranges = match.match_ranges
-          if location then
+          if location and item.type ~= "directory" then
             item.lnum, item.col = location.line, math.max(0, (location.col or 1) - 1)
           end
           items[#items + 1] = item

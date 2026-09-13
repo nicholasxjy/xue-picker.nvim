@@ -1574,6 +1574,62 @@ test("smart passes the invoking file, caps results and opens fff locations", fun
   eq(fixture .. "/src/alpha.lua", api.nvim_buf_get_name(0))
   eq({ 3, 1 }, api.nvim_win_get_cursor(0))
 end)
+test("smart forwards file_search parameters with configured and per-call precedence", function()
+  vim.env.XUE_TEST_FFF_MODE = "uninitialized_picker_ui"
+  vim.cmd({ cmd = "edit", args = { fixture .. "/src/alpha.lua" } })
+  picker.setup({
+    pickers = {
+      smart = {
+        mode = "mixed",
+        max_results = 1,
+        page = 0,
+        max_threads = 3,
+        combo_boost_score_multiplier = 0,
+        min_combo_count = 5,
+        wait_for_index_ms = 25,
+      },
+    },
+  })
+  local input = opts({ query = "options", page = 1, max_threads = 2, current_file = fixture .. "/beta.txt" })
+  local original = vim.deepcopy(input)
+  local s = ready(B.smart(input))
+  eq(1, #s.results)
+  eq("src/alpha.lua", s.results[1].text)
+  eq("file", s.results[1].type)
+  assert(s.truncated)
+  eq(original, input)
+  s:close()
+  s = ready(picker.resume())
+  eq("src/alpha.lua", s.results[1].text)
+  eq(1, s.opts.page)
+end)
+test("smart supports directories, mixed results and empty pages", function()
+  local s = ready(B.smart(opts({ mode = "directories" })))
+  eq(2, #s.results)
+  eq("directory", s.results[1].type)
+  eq(fixture .. "/src", s.results[1].path)
+  eq(fixture, s.results[2].path)
+  eq(".", s.results[2].text)
+  eq("directory", s.results[2].type)
+  assert(not s.truncated)
+  s:close()
+  local selected
+  s = ready(B.smart(opts({
+    mode = "mixed",
+    max_results = 1,
+    page = 2,
+    on_accept = function(items)
+      selected = items[1]
+    end,
+  })))
+  eq(1, #s.results)
+  eq("directory", s.results[1].type)
+  s:accept("edit")
+  eq("directory", selected.type)
+  eq(fixture .. "/src", selected.path)
+  s = ready(B.smart(opts({ max_results = 1, page = 5 })))
+  eq(0, #s.results)
+end)
 test("smart keeps displayed rows and selection until the replacement search finishes", function()
   local s = ready(B.smart(opts({ debounce_ms = 80, preview = { enabled = true, debounce_ms = 0 } })))
   s:move(1)

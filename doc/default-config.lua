@@ -334,7 +334,10 @@ require("xue-picker").setup({
       },
       matcher = false,
       max_results = 20000,
+      mode = "files",
+      page = 0,
       prompt = "Files> ",
+      wait_for_index_ms = 0,
     },
     ui_input = {
       prompt = "Input> ",

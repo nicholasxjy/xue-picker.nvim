@@ -52,6 +52,11 @@ function M.request(id, method, args)
     end
     assert(fff, "fff worker is not initialized")
     if method == "file_search" then
+      if (args.opts.wait_for_index_ms or 0) > 0 then
+        -- The public API's scan wait needs the file controller initialized.
+        -- This sets controller state without loading or opening the picker UI.
+        require("fff.file_picker").setup()
+      end
       local result = fff.file_search(args.query, args.opts)
       assert(
         type(result) == "table" and type(result.items) == "table" and type(result.total_matched) == "number",

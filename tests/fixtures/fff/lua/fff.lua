@@ -6,7 +6,7 @@ end
 function M.setup() end
 function M.file_search(query, opts)
   -- Programmatic initialization does not initialize fff's picker UI state.
-  if mode() == "uninitialized_picker_ui" and opts.wait_for_index_ms > 0 then
+  if mode() == "uninitialized_picker_ui" and opts.wait_for_index_ms > 0 and not M.picker_initialized then
     vim.notify("FFF file_search: timeout waiting for index scan", vim.log.levels.ERROR)
     return { items = {} }
   end
@@ -20,8 +20,11 @@ function M.file_search(query, opts)
     vim.notify("fixture init notification", vim.log.levels.ERROR)
   end
   M.index_started = true
-  if opts.mode == "files" then
-    assert(opts.page == 0 and opts.wait_for_index_ms == 0)
+  if opts.mode then
+    assert(
+      opts.mode == "files" or opts.mode == "directories" or opts.mode == "mixed",
+      "invalid file search mode"
+    )
     if mode() == "file_error" or query == "file_error" then
       error("fixture file search failed")
     elseif mode() == "file_notify" then
@@ -33,9 +36,17 @@ function M.file_search(query, opts)
     end
     -- Deliberately ranked and typo-matched by the backend, never by the picker.
     local items = {
-      { relative_path = "beta.txt", match_ranges = { { 0, 4 } } },
-      { relative_path = "src/alpha.lua", match_ranges = { { 4, 9 } } },
+      { type = "file", relative_path = "beta.txt", match_ranges = { { 0, 4 } } },
+      { type = "file", relative_path = "src/alpha.lua", match_ranges = { { 4, 9 } } },
     }
+    local directory = { type = "directory", relative_path = "src/" }
+    local root = { type = "directory", relative_path = "" }
+    if opts.mode == "directories" then
+      items = { directory, root }
+    elseif opts.mode == "mixed" then
+      items[#items + 1] = directory
+      items[#items + 1] = root
+    end
     local location
     if query == "alpah *.lua !test/" then
       items = { items[2] }
@@ -46,9 +57,17 @@ function M.file_search(query, opts)
     elseif query == "current" then
       assert(opts.current_file == opts.cwd .. "/src/alpha.lua", "missing invoking file")
       items = { items[1] }
+    elseif query == "options" then
+      assert(opts.max_threads == 2, "missing max_threads")
+      assert(opts.current_file == opts.cwd .. "/beta.txt", "missing current_file override")
+      assert(opts.combo_boost_score_multiplier == 0, "missing combo boost override")
+      assert(opts.min_combo_count == 5, "missing min_combo_count")
+      assert(opts.wait_for_index_ms == 25, "missing wait_for_index_ms")
+      assert(opts.ready_timeout_ms == nil and opts.query == nil, "picker options leaked to fff")
     end
     local total = #items
-    items = vim.list_slice(items, 1, opts.max_results)
+    local first = opts.page * opts.max_results + 1
+    items = vim.list_slice(items, first, first + opts.max_results - 1)
     return {
       items = items,
       scores = { { total = 7 }, { total = 999 } },

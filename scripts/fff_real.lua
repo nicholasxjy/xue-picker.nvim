@@ -5,6 +5,8 @@ vim.opt.rtp:append(vim.env.XUE_FFF_RTP)
 local fixture = vim.fn.tempname()
 vim.fn.mkdir(fixture, "p")
 fixture = vim.uv.fs_realpath(fixture)
+vim.fn.mkdir(fixture .. "/nested", "p")
+vim.fn.writefile({ "directory entry" }, fixture .. "/nested/child.txt")
 for i = 1, 300 do
   vim.fn.writefile(
     { "hi🌍 foo Foo", "alpha.beta", "alphaXbeta", "foo", "foo", "foo", "foo" },
@@ -69,18 +71,35 @@ local ok, err = xpcall(function()
   })
   fff.file_search("", { cwd = fixture, max_results = 1, wait_for_index_ms = 0 })
   assert(require("fff.fuzzy").wait_for_initial_scan(10000))
-  local file_opts = require("xue-picker.config").resolve("smart", { cwd = fixture, max_results = 17 })
+  require("fff.file_picker").setup()
   local ctx = { session = { origin = { buf = vim.api.nvim_get_current_buf() } } }
-  for _, query in ipairs({
-    "",
-    "file12",
-    "flie12",
-    "file2 *.txt",
-    "*.txt !file1*",
-    "file12.txt:3:2",
-    "absent24122",
+  for _, case in ipairs({
+    { "" },
+    { "file12" },
+    { "flie12" },
+    { "file2 *.txt" },
+    { "*.txt !file1*" },
+    { "file12.txt:3:2" },
+    { "absent24122" },
+    { "", { mode = "directories" } },
+    { "", { mode = "mixed", max_results = 400 } },
+    {
+      "file12",
+      {
+        page = 1,
+        max_results = 3,
+        current_file = fixture .. "/file12.txt",
+        max_threads = 2,
+        combo_boost_score_multiplier = 0,
+        min_combo_count = 5,
+        wait_for_index_ms = 25,
+      },
+    },
   }) do
-    local expected = fff.file_search(query, { cwd = fixture, max_results = file_opts.max_results })
+    local query = case[1]
+    local search_opts = vim.tbl_extend("force", { cwd = fixture, max_results = 17 }, case[2] or {})
+    local file_opts = require("xue-picker.config").resolve("smart", search_opts)
+    local expected = fff.file_search(query, search_opts)
     local actual, state
     ctx.query = query
     local start = vim.uv.hrtime()
@@ -98,10 +117,13 @@ local ok, err = xpcall(function()
     assert(#actual == #expected.items, "file count mismatch for " .. query)
     assert(state.truncated == (expected.total_matched > #expected.items))
     for i, item in ipairs(actual) do
+      local relative_path = expected.items[i].relative_path
       assert(
-        item.path == fixture .. "/" .. expected.items[i].relative_path,
+        item.path
+          == (relative_path == "" and fixture or require("xue-picker.util").path(relative_path, fixture)),
         "file order mismatch for " .. query
       )
+      assert(item.type == expected.items[i].type, "item type mismatch for " .. query)
       assert(item.score == expected.scores[i].total, "score mismatch for " .. query)
       assert(vim.deep_equal(item.ranges, expected.items[i].match_ranges), "highlights mismatch for " .. query)
       if expected.location then
@@ -112,6 +134,8 @@ local ok, err = xpcall(function()
     report[#report + 1] = {
       backend = "fff-files",
       query = query,
+      mode = search_opts.mode or "files",
+      page = search_opts.page or 0,
       count = #actual,
       ms = (vim.uv.hrtime() - start) / 1e6,
     }

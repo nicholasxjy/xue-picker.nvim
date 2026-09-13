@@ -100,6 +100,17 @@ Builtins                                                *xue-picker-builtin*
         ignore files are respected. max_results=20000, debounce_ms=30.
         fff.ready_timeout_ms=10000, request_timeout_ms=1000, idle_timeout_ms=60000.
         Searches run in an isolated worker. Missing/failing fff displays an error.
+        file_search parameters are top-level smart options, also configurable in
+        setup.pickers.smart: cwd, mode, max_results, page, current_file,
+        max_threads, combo_boost_score_multiplier, min_combo_count,
+        wait_for_index_ms. query supplies the file_search query argument.
+        mode="files" (default), "directories", or "mixed"; page=0 is zero-based.
+        max_results limits the requested page. Directory results retain
+        type="directory" for filters and callbacks. current_file defaults to
+        the invoking file; wait_for_index_ms defaults to 0. Thread and combo
+        settings default to fff's values. Per-call options override setup values.
+        The fff.request_timeout_ms limit also bounds explicit index waits.
+        fff setup() and picker UI settings are not file_search parameters.
     buffers: Listed buffers, including unnamed and terminal buffers.
         The current buffer is included even if unlisted. Quickfix and the
         picker's own buffers are excluded. show_unlisted=true includes other

@@ -141,6 +141,25 @@ renders with unchanged state do not emit another event.
 
 `smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. Results come from fff's index in `cwd`; buffers and oldfiles are no longer merged. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
 
+Pass `file_search` parameters directly to `smart`, or configure them under `setup({ pickers = { smart = { ... } } })`:
+
+```lua
+require("xue-picker.builtin").smart({
+  query = "button",
+  cwd = "~/project",
+  mode = "mixed", -- "files" (default), "directories", or "mixed"
+  max_results = 50, -- items per page; smart defaults to 20000
+  page = 0, -- zero-based
+  max_threads = 4,
+  current_file = vim.api.nvim_buf_get_name(0), -- defaults to the invoking file
+  combo_boost_score_multiplier = 100,
+  min_combo_count = 3,
+  wait_for_index_ms = 0,
+})
+```
+
+`query` supplies the first argument of `file_search`; the other parameters use fff's names and are forwarded as its options. Omitted thread and combo settings use fff's defaults. Each search displays the requested page in fff's order; directory items expose `item.type = "directory"` to filters and callbacks. Per-call values override configured values. The worker's preparation, request, and idle limits remain under `fff.ready_timeout_ms`, `fff.request_timeout_ms`, and `fff.idle_timeout_ms`; the request limit also bounds an explicit index wait. fff `setup()` options and picker UI settings are separate from these search parameters.
+
 `files` and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102). The following syntax and scoring settings apply to these local pickers:
 
 | Query | Meaning |

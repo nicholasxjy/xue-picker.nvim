@@ -37,7 +37,9 @@ function Session:move(delta)
 end
 function Session:get_selection()
   local result = {}
-  for _, item in ipairs(self.items) do
+  -- Smart keeps its published rows visible while the next batch is prepared.
+  local items = self.opts.name == "smart" and self.results or self.items
+  for _, item in ipairs(items) do
     if self.selected[item.id] then
       result[#result + 1] = item
     end
@@ -115,6 +117,10 @@ function Session:rank()
       return
     end
     self.results = result or {}
+    if self.reset_index then
+      self.index, self.offset, self.current_id = 1, 1, nil
+      self.reset_index = nil
+    end
     if self.opts.name == "files" and self.query == "" and self.cache_key and not self.opts.filter.fn then
       local cache = require("xue-picker.sources.files").cache[self.cache_key]
       if cache then
@@ -269,7 +275,12 @@ function Session:set_query(query, from_input)
   if query == self.query and self.started then
     return
   end
-  self.query, self.current_id, self.index, self.offset = query, nil, 1, 1
+  self.query, self.current_id = query, nil
+  if self.opts.name == "smart" then
+    self.reset_index = true
+  else
+    self.index, self.offset = 1, 1
+  end
   if self.opts.live then
     cancel(self, "cancel_source")
     cancel(self, "cancel_prepare")
@@ -277,8 +288,11 @@ function Session:set_query(query, from_input)
     self.source_generation = self.source_generation + 1
     self.match_generation = self.match_generation + 1
     self.deliveries, self.preparing = {}, false
-    self.items, self.results, self.ids = {}, {}, {}
-    self.loading, self.error, self.truncated = query ~= "", nil, false
+    self.items, self.ids = {}, {}
+    if self.opts.name ~= "smart" then
+      self.results = {}
+    end
+    self.loading, self.error, self.truncated = self.opts.name == "smart" or query ~= "", nil, false
     U.stop(self.query_timer)
     self.query_timer = U.later(self.opts.debounce_ms or 0, function()
       self:refresh()

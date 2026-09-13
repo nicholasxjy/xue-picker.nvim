@@ -22,7 +22,7 @@ function M.file_search(query, opts)
   M.index_started = true
   if opts.mode == "files" then
     assert(opts.page == 0 and opts.wait_for_index_ms == 0)
-    if mode() == "file_error" then
+    if mode() == "file_error" or query == "file_error" then
       error("fixture file search failed")
     elseif mode() == "file_notify" then
       vim.notify("fixture file notification", vim.log.levels.ERROR)

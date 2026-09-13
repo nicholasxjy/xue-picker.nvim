@@ -91,8 +91,28 @@ Builtins                                                *xue-picker-builtin*
     files: Directory files, without history.
     smart: Combines directory, open, and valid recent files;
         deduplicates by absolute path. filter.cwd=true, matcher.frecency=true.
-    buffers: Normal listed buffers, including unnamed buffers.
-        % current, # alternate, + modified, RO read-only.
+    buffers: Listed buffers, including unnamed and terminal buffers.
+        The current buffer is included even if unlisted. Quickfix and the
+        picker's own buffers are excluded. show_unlisted=true includes other
+        unlisted buffers; show_unloaded=true by default.
+        Rows match fzf-lua: [number], four flag columns, icon, path:line.
+        Numbers align across all candidates. Flags: % current, # alternate,
+        a visible/loaded, h hidden, = read-only, + modified.
+        sort_lastused=true pins the current buffer in a fixed, non-selectable
+        header; other buffers use recent-first order, with the alternate first.
+        Filtering, selection and result counts exclude the header. If only one
+        result row fits, the header is hidden to keep the selection visible.
+        sort_lastused=false makes the current buffer selectable;
+        ignore_current_buffer=true excludes it entirely.
+        path_format="relative" and git.enabled=false by default.
+        filename_first displays filename directory:line, with separate path
+        highlights. filename_only=true displays/searches only the filename,
+        without icons or line numbers. Unnamed buffers display [No Name];
+        URI labels are preserved, and terminals use their terminal title.
+        Narrow rows truncate with fzf's two-dot ellipsis and scroll horizontally
+        to keep query matches visible. Selection uses fzf's bold text, gutter,
+        marker and background, leaving the right margin clear.
+        Saved line numbers guide previews; accepting preserves cursor position.
         delete protects unsaved changes by default; force=true allows deletion.
     live_grep: regex/plain, smartcase, grouped by file. See |xue-picker-grep|.
     grep_word: Opens live_grep with <cword> from the invoking buffer, respecting
@@ -286,6 +306,15 @@ UI and preview                                               *xue-picker-ui*
         HintBind     -> FzfLuaHeaderBind
         HintSeparator -> FzfLuaFzfHeader
         Count        -> FzfLuaFzfInfo
+        BufferNumber -> FzfLuaBufNr
+        BufferCurrent -> FzfLuaBufFlagCur
+        BufferAlternate -> FzfLuaBufFlagAlt
+        BufferLineNr -> FzfLuaPathLineNr
+        BufferHeader -> FzfLuaFzfHeader
+        BufferSelected -> FzfLuaFzfCursorLine
+        BufferMatch  -> FzfLuaFzfMatch
+        BufferPointer -> FzfLuaFzfPointer
+        BufferMarker -> FzfLuaFzfMarker
         Group        -> FzfLuaHeaderText
         GrepPath     -> FzfLuaFilePart
         PreviewLine  -> FzfLuaCursorLine
@@ -296,6 +325,10 @@ UI and preview                                               *xue-picker-ui*
         DiagnosticHint  -> DiagnosticSignHint
         DiagnosticCode  -> Comment
     Error -> DiagnosticError, Git -> DiffChange (no equivalent fzf-lua groups).
+    BufferGutter uses FzfLuaFzfGutter's background as its foreground, falling
+    back to Normal's background. BufferStrong supplies bold text.
+    Buffer groups use matching fzf-lua dark/light defaults when targets are
+    absent, preserving theme and explicit configuration overrides.
     Target groups are defined by the colorscheme or fzf-lua;
     this plugin does not load fzf-lua automatically.
     Definitions use default=true to preserve existing settings and respond to

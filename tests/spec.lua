@@ -737,10 +737,10 @@ test("buffers includes unnamed, status and modified protection", function()
   local buf = api.nvim_get_current_buf()
   api.nvim_buf_set_lines(buf, 0, -1, false, { "unsaved" })
   vim.bo[buf].readonly = true
-  local s = ready(B.buffers(opts()))
+  local s = ready(B.buffers(opts({ sort_lastused = false })))
   local item = s.ids["buffer:" .. buf]
   eq("[No Name]", item.text)
-  assert(item.status:find("%+RO", 1, true))
+  eq("%a=+", item.status)
   for i, candidate in ipairs(s.results) do
     if candidate.id == item.id then
       s.index = i
@@ -769,10 +769,154 @@ test("buffers alternate status comes from invoking window", function()
   api.nvim_set_current_buf(two)
   local s = ready(B.buffers(opts()))
   eq("#", s.ids["buffer:" .. one].status:sub(1, 1))
-  eq("%", s.ids["buffer:" .. two].status:sub(1, 1))
+  eq(two, s.buffer_header.bufnr)
+  eq("%", s.buffer_header.status:sub(1, 1))
+  eq(nil, s.ids["buffer:" .. two])
+  eq(one, s.results[1].bufnr)
   s:close()
   api.nvim_buf_delete(one, { force = true })
   api.nvim_buf_delete(two, { force = true })
+end)
+test("buffers render fixed current header, aligned flags, icons and saved line numbers", function()
+  local origin, hidden = api.nvim_get_current_buf(), vim.o.hidden
+  vim.o.hidden = true
+  local current, other, unnamed =
+    api.nvim_create_buf(true, false), api.nvim_create_buf(true, false), api.nvim_create_buf(true, false)
+  api.nvim_buf_set_name(current, fixture .. "/buffers/café🌟.lua")
+  api.nvim_buf_set_name(other, fixture .. "/buffers/nested/other.lua")
+  api.nvim_set_current_buf(other)
+  api.nvim_buf_set_lines(other, 0, -1, false, { "one", "two", "three" })
+  api.nvim_win_set_cursor(0, { 3, 1 })
+  vim.bo[other].readonly = true
+  api.nvim_set_current_buf(current)
+  api.nvim_buf_set_lines(current, 0, -1, false, { "one", "two" })
+  api.nvim_win_set_cursor(0, { 2, 0 })
+  vim.bo[current].modified = false
+  local ids = { [current] = true, [other] = true, [unnamed] = true }
+  local s = ready(B.buffers(opts({
+    icons = function()
+      return "λ ", "Search"
+    end,
+    filter = {
+      fn = function(item)
+        return ids[item.bufnr]
+      end,
+    },
+  })))
+  eq(current, s.buffer_header.bufnr)
+  eq(other, s.results[1].bufnr)
+  eq(2, #s.results)
+  eq(nil, s.ids["buffer:" .. current])
+  eq("%a  ", s.buffer_header.status)
+  eq("#h=+", s.results[1].status)
+  eq(3, s.results[1].buffer_lnum)
+  eq(nil, s.results[1].lnum)
+  s.ui:render()
+  local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, -1, false)
+  local width = require("xue-picker.buffers").number_width(s)
+  eq(
+    ("  [%d]%s %%a    λ buffers/café🌟.lua:2"):format(
+      current,
+      string.rep(" ", width - #tostring(current) + 1)
+    ),
+    lines[1]
+  )
+  eq(
+    ("▌ [%d]%s #h=+  λ buffers/nested/other.lua:3"):format(
+      other,
+      string.rep(" ", width - #tostring(other) + 1)
+    ),
+    lines[2]:gsub(" +$", "")
+  )
+  eq({ { text = "%", priority = 150 } }, highlighted(s, "XuePickerBufferCurrent"))
+  eq({ { text = "#", priority = 150 } }, highlighted(s, "XuePickerBufferAlternate"))
+  eq(
+    { { text = "2", priority = 150 }, { text = "3", priority = 150 } },
+    highlighted(s, "XuePickerBufferLineNr")
+  )
+  local pinned = lines[1]
+  s:set_query("other")
+  ready(s)
+  s.ui:render()
+  eq(1, #s.results)
+  eq(pinned, api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1])
+  assert(#highlighted(s, "XuePickerBufferMatch") > 0)
+  s:act("toggle_all")
+  eq(1, #s:get_selection())
+  eq(nil, s.selected[s.buffer_header.id])
+  s.ui.list_width = 32
+  s.ui:render()
+  local narrow = api.nvim_buf_get_lines(s.ui.bufs.list, 1, 2, false)[1]
+  assert(narrow:find("··", 1, true) and narrow:find("other", 1, true), narrow)
+  assert(vim.fn.strdisplaywidth(narrow) <= 31)
+  eq(
+    "other",
+    table.concat(vim.tbl_map(function(span)
+      return span.text
+    end, highlighted(s, "XuePickerBufferMatch")))
+  )
+  s.ui.list_width = s.ui.width
+  s:set_query("no matching buffer")
+  ready(s)
+  s.ui:render()
+  eq(0, #s.results)
+  eq(pinned, api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1])
+  s:set_query("other")
+  ready(s)
+  s.opts.layout.height = 3
+  s.ui:layout()
+  s.ui:render()
+  assert(api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]:find("other.lua", 1, true))
+  s:close()
+  s = ready(picker.resume())
+  eq(current, s.buffer_header.bufnr)
+  eq("other", s.query)
+  s:accept("edit")
+  eq(other, api.nvim_get_current_buf())
+  eq({ 3, 1 }, api.nvim_win_get_cursor(0))
+  s = ready(picker.resume())
+  eq(other, s.buffer_header.bufnr)
+  eq(nil, s.selected["buffer:" .. other])
+  s:close()
+  api.nvim_set_current_buf(origin)
+  for buf in pairs(ids) do
+    api.nvim_buf_delete(buf, { force = true })
+  end
+  vim.o.hidden = hidden
+end)
+test("buffer visibility, filename-only matching and header options follow fzf-lua", function()
+  local origin = api.nvim_get_current_buf()
+  local unlisted = api.nvim_create_buf(false, false)
+  api.nvim_buf_set_name(unlisted, fixture .. "/hidden-buffer.lua")
+  local unloaded = vim.fn.bufadd(fixture .. "/unloaded-buffer.lua")
+  vim.bo[unloaded].buflisted = true
+  local ids = { [origin] = true, [unlisted] = true, [unloaded] = true }
+  local extra = { icons = false, filter = {
+    fn = function(item)
+      return ids[item.bufnr]
+    end,
+  } }
+  local s = ready(B.buffers(opts(extra)))
+  assert(s.buffer_header and s.ids["buffer:" .. unloaded])
+  eq(nil, s.ids["buffer:" .. unlisted])
+  s:close()
+  s = ready(
+    B.buffers(opts(C.merge(extra, { show_unlisted = true, show_unloaded = false, sort_lastused = false })))
+  )
+  eq(nil, s.buffer_header)
+  assert(s.ids["buffer:" .. origin] and s.ids["buffer:" .. unlisted])
+  eq(nil, s.ids["buffer:" .. unloaded])
+  s:close()
+  s = ready(B.buffers(opts(C.merge(extra, { ignore_current_buffer = true, filename_only = true }))))
+  eq(nil, s.buffer_header)
+  eq(nil, s.ids["buffer:" .. origin])
+  s.ui:render()
+  local text = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 1, false)[1]
+  assert(text:find("unloaded-buffer.lua", 1, true) and not text:find(".lua:", 1, true))
+  eq("unloaded-buffer.lua", s.results[1].text)
+  s:close()
+  api.nvim_buf_delete(unlisted, { force = true })
+  api.nvim_buf_delete(unloaded, { force = true })
 end)
 test("diagnostics scopes, severity order and live update", function()
   local buf = vim.fn.bufadd(fixture .. "/src/alpha.lua")
@@ -1123,7 +1267,7 @@ test("opening files lists new and existing buffers before BufEnter", function()
     assert(vim.bo.buflisted and listed_on_enter)
     local opened = api.nvim_get_current_buf()
     local buffers = ready(B.buffers(opts()))
-    assert(buffers.ids["buffer:" .. opened])
+    eq(opened, buffers.buffer_header.bufnr)
     buffers:close()
     api.nvim_buf_delete(opened, { force = true })
     vim.fn.delete(path)

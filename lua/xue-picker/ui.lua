@@ -3,6 +3,7 @@ local M = {}
 local ns = api.nvim_create_namespace("XuePicker")
 function M.highlights(opts)
   require("xue-picker.hints").highlights()
+  require("xue-picker.buffers").highlights()
   for name, def in pairs(require("xue-picker.config").defaults.highlights) do
     api.nvim_set_hl(0, name, def)
   end
@@ -180,15 +181,16 @@ local function icon(item, opts)
     local value, group = opts.icons(item)
     return U.clean(value or ""), group
   end
-  if item.path then
+  local path = item.icon_path or item.path
+  if path then
     local mini = package.loaded["mini.icons"]
     if mini then
-      local value, group = mini.get("file", item.path)
+      local value, group = mini.get("file", path)
       return value .. " ", group
     end
     local devicons = package.loaded["nvim-web-devicons"]
     if devicons then
-      local value, group = devicons.get_icon(vim.fs.basename(item.path), nil, { default = true })
+      local value, group = devicons.get_icon(vim.fs.basename(path), nil, { default = true })
       return (value or "·") .. " ", group
     end
   end
@@ -218,6 +220,16 @@ function M:format(item, index)
   if opts.format then
     local value, spans = opts.format(item, { width = self.list_width, index = index, session = s })
     return U.clean(value), spans or {}
+  end
+  if opts.name == "buffers" then
+    return require("xue-picker.buffers").format(
+      item,
+      s,
+      self.list_width,
+      self.buffer_number_width or 1,
+      index == s.index,
+      icon(item, opts)
+    )
   end
   local grep = opts.name == "live_grep"
   local prefix = (index == s.index and opts.pointer or " ")
@@ -316,6 +328,9 @@ function M:render()
     s.first_results_at = vim.uv.hrtime() / 1e6
   end
   local grep = s.opts.name == "live_grep"
+  if s.opts.name == "buffers" then
+    self.buffer_number_width = require("xue-picker.buffers").number_width(s)
+  end
   if grep and self.location_results ~= s.results then
     -- Rank publishes a new result array; reuse widths while moving or scrolling.
     self.location_results = s.results
@@ -328,7 +343,8 @@ function M:render()
     end
   end
   local lines, marks, directories, selected_row, selected_rows = {}, {}, {}, nil, {}
-  local height = self.list_height
+  local header = s.opts.name == "buffers" and self.list_height > 1 and s.buffer_header
+  local height = self.list_height - (header and 1 or 0)
   s.offset = math.max(1, math.min(s.offset or 1, math.max(1, #s.results)))
   if s.index < s.offset then
     s.offset = s.index
@@ -338,11 +354,18 @@ function M:render()
   end
   local function fill()
     lines, marks, directories, selected_row, selected_rows = {}, {}, {}, nil, {}
+    if header then
+      local line, spans = self:format(header)
+      lines[1] = line
+      for _, span in ipairs(spans) do
+        marks[#marks + 1] = { 0, unpack(span) }
+      end
+    end
     local previous
     for i = s.offset, #s.results do
       local item = s.results[i]
       if s.opts.group and item.path ~= previous then
-        if #lines >= height - 1 then
+        if #lines >= self.list_height - 1 then
           break
         end
         local path = U.clean(
@@ -368,7 +391,7 @@ function M:render()
         end
         previous = item.path
       end
-      if #lines >= height then
+      if #lines >= self.list_height then
         break
       end
       local line, spans, directory_start, continuation = self:format(item, i)
@@ -378,7 +401,7 @@ function M:render()
           entry_height = entry_height + 1
         end
       end
-      if #lines > 0 and #lines + entry_height > height then
+      if #lines > 0 and #lines + entry_height > self.list_height then
         break
       end
       lines[#lines + 1] = line
@@ -391,7 +414,7 @@ function M:render()
         selected_rows[#selected_rows + 1] = selected_row
       end
       for _, part in ipairs(continuation or {}) do
-        if #lines >= height then
+        if #lines >= self.list_height then
           break
         end
         lines[#lines + 1] = part.text
@@ -426,29 +449,34 @@ function M:render()
       mark[2], mark[3] = mark[2] + padding[row], mark[3] + padding[row]
     end
   end
-  if #lines == 0 then
+  if #s.results == 0 and #lines < self.list_height then
     local message = s.error or (s.loading and "Loading…" or s.searching and "Searching…" or "No results")
-    lines = { grep and not s.error and (s.loading or s.searching) and "" or "  " .. message }
+    lines[#lines + 1] = not s.error
+        and (s.opts.name == "buffers" or grep and (s.loading or s.searching))
+        and ""
+      or "  " .. message
   end
-  while #lines < height do
+  while #lines < self.list_height do
     lines[#lines + 1] = ""
   end
   api.nvim_buf_set_lines(self.bufs.list, 0, -1, false, lines)
   api.nvim_buf_clear_namespace(self.bufs.list, ns, 0, -1)
   for _, row in ipairs(selected_rows) do
-    api.nvim_buf_set_extmark(
-      self.bufs.list,
-      ns,
-      row,
-      0,
-      { line_hl_group = "XuePickerSelected", priority = 90 }
-    )
+    if s.opts.name ~= "buffers" or s.opts.format then
+      api.nvim_buf_set_extmark(self.bufs.list, ns, row, 0, {
+        line_hl_group = s.opts.name == "buffers" and "XuePickerBufferSelected" or "XuePickerSelected",
+        priority = 90,
+      })
+    end
   end
   for _, mark in ipairs(marks) do
     highlight(self.bufs.list, unpack(mark))
   end
-  if s.error then
-    highlight(self.bufs.list, 0, 0, #lines[1], "XuePickerError")
+  if s.error and #s.results == 0 then
+    local row = header and 1 or 0
+    if lines[row + 1] then
+      highlight(self.bufs.list, row, 0, #lines[row + 1], "XuePickerError")
+    end
   end
   local status = s.error and "Failed"
     or not grep and (s.loading and "Loading" or s.searching and "Searching")

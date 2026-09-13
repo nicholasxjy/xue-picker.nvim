@@ -19,6 +19,50 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaBorder",
       },
+      XuePickerBufferAlternate = {
+        default = true,
+        link = "FzfLuaBufFlagAlt",
+      },
+      XuePickerBufferCurrent = {
+        default = true,
+        link = "FzfLuaBufFlagCur",
+      },
+      XuePickerBufferGutter = {
+        default = true,
+        fg = "bg",
+      },
+      XuePickerBufferHeader = {
+        default = true,
+        link = "FzfLuaFzfHeader",
+      },
+      XuePickerBufferLineNr = {
+        default = true,
+        link = "FzfLuaPathLineNr",
+      },
+      XuePickerBufferMarker = {
+        default = true,
+        link = "FzfLuaFzfMarker",
+      },
+      XuePickerBufferMatch = {
+        default = true,
+        link = "FzfLuaFzfMatch",
+      },
+      XuePickerBufferNumber = {
+        default = true,
+        link = "FzfLuaBufNr",
+      },
+      XuePickerBufferPointer = {
+        default = true,
+        link = "FzfLuaFzfPointer",
+      },
+      XuePickerBufferSelected = {
+        default = true,
+        link = "FzfLuaFzfCursorLine",
+      },
+      XuePickerBufferStrong = {
+        bold = true,
+        default = true,
+      },
       XuePickerColNr = {
         default = true,
         link = "FzfLuaPathColNr",
@@ -185,9 +229,21 @@ require("xue-picker").setup({
   },
   pickers = {
     buffers = {
+      filename_only = false,
       force = false,
+      git = {
+        enabled = false,
+      },
+      gutter = "▌",
+      ignore_current_buffer = false,
+      marker = "┃",
+      path_format = "relative",
+      pointer = "▌",
       prompt = "Buffers> ",
+      show_unlisted = false,
+      show_unloaded = true,
       sort = false,
+      sort_lastused = true,
     },
     diagnostics = {
       color_headings = true,

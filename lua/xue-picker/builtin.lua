@@ -138,22 +138,7 @@ function M.buffers(opts)
   return launch("buffers", opts, function(o)
     o.source = o.source
       or function(ctx, emit)
-        local items, alternate = {}, ctx.session.origin.alternate
-        for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
-          if vim.bo[info.bufnr].buftype == "" then
-            local item = info.name ~= "" and U.file(info.name, o.cwd) or { text = "[No Name]" }
-            item.id, item.bufnr, item.info = "buffer:" .. info.bufnr, info.bufnr, info
-            item.status = (
-              info.bufnr == ctx.session.origin.buf and "%"
-              or info.bufnr == alternate and "#"
-              or " "
-            )
-              .. (vim.bo[info.bufnr].modified and "+" or " ")
-              .. (vim.bo[info.bufnr].readonly and "RO" or "")
-            items[#items + 1] = item
-          end
-        end
-        emit(items, { replace = true, done = true })
+        require("xue-picker.buffers").source(ctx, emit, o)
       end
     if not o.actions.delete then
       o.actions.delete = function(s)

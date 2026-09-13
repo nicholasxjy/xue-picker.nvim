@@ -16,7 +16,7 @@ function M.update(s)
   end
   local gen, opts = s.preview_generation, s.opts.preview
   local location = not s.opts.live and s.ranker and s.ranker:location(s.query)
-  local target = location and location[1] or item.lnum or 1
+  local target = math.max(1, location and location[1] or item.lnum or item.buffer_lnum or 1)
   local function valid()
     return not s.closed and gen == s.preview_generation
   end

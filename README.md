@@ -33,7 +33,7 @@ With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", opts = {} }`. Ready to use
 | --- | --- |
 | `files` | Files in `cwd`, fuzzy and filename weighting, without mixing in history. |
 | `smart` | Merges directory files, normal listed buffers, and valid recent files; deduplicates by absolute path, applies cwd/frecency weighting, `filter.cwd=true`. |
-| `buffers` | Includes unlisted/unnamed buffers; `%` current, `#` alternate, `+` modified, `RO` read-only; deletion protects unsaved changes by default, explicit `force=true` forces deletion. |
+| `buffers` | fzf-lua rows with a fixed current-buffer header and recent-first ordering; `[number]`, `%/#`, `a/h`, `=`, `+`, icon, path and saved line. Includes listed, unnamed and terminal buffers; `show_unlisted=true` includes other unlisted buffers. Deletion protects unsaved changes unless `force=true`. |
 | `live_grep` | regex, smartcase, grouped by file; `backend`, `mode`, `globs`, and `max_results` are configurable. |
 | `grep_word` | Opens `live_grep` with the word under the cursor and literal matching (`mode="plain"`); inherits `live_grep` settings and accepts its options. |
 | `diagnostics` | Workspace diagnostics with fzf-lua-style signs, source, location, message, and code; configurable `sort`, reacts to `DiagnosticChanged`; `scope="buffer"/"cwd"`, `bufnr`, and `severity` follow `vim.diagnostic.get()` semantics. |
@@ -78,6 +78,16 @@ require("xue-picker.builtin").diagnostics({ sort = false, multiline = false })
 Diagnostic rows follow fzf-lua: a severity sign, `[source]`, and `file:line:column:` heading, followed by the message and a `[code]` suffix. `path_format="filename_first"` shows `filename directory:line:column:`. The default `multiline=2` places messages below headings with one blank row between entries; `multiline=true` removes that gap, and `multiline=false` uses a compact row with the first message line. Long rows wrap at the panel width, and selection highlighting covers the entire entry.
 
 Signs come from `vim.diagnostic.config().signs.text`, with E/W/I/H fallbacks. As in fzf-lua, `diag_icons=false` uses those letters; a severity-indexed `diag_icons` table overrides the symbols. `signs.Error/Warn/Info/Hint={text=..., texthl=...}` provides per-level overrides. `diag_source`, `diag_code`, `color_icons`, and `color_headings` default to true. File icons and Git status are disabled for diagnostics by default. Source labels and unformatted paths use severity colors; filename/directory formatting and line/column highlights use the same groups as fzf-lua.
+
+## Buffer Layout
+
+Buffer rows follow [fzf-lua's buffer renderer](https://github.com/ibhagwan/fzf-lua/blob/32bfd06486da508ac6ea87804370d6ffc27c4e24/lua/fzf-lua/providers/buffers.lua#L169). Buffer numbers align across the candidate list. Flags use `%` for current, `#` for alternate, `a` for visible/loaded, `h` for hidden, `=` for read-only, and `+` for modified. Names and URI labels retain their original spelling; unnamed buffers show `[No Name]`. File paths include the saved line number and optional file icon. Terminal buffers use their terminal title.
+
+With `sort_lastused=true` (default), the current buffer stays in a fixed, non-selectable header while other buffers follow recent-use order, with the alternate first. Filtering and result counts exclude that header. On layouts with room for only one result row, the header is hidden to keep the selection visible. Set `sort_lastused=false` to include the current buffer as a selectable result. `ignore_current_buffer=true` excludes it entirely; `show_unloaded=false` excludes unloaded buffers.
+
+Buffers default to `path_format="relative"` and disable Git decorations. `path_format="filename_first"` shows the filename before its directory; `filename_only=true` shows and searches only the filename, without icons or line numbers. Narrow rows use fzf's `··` truncation and scroll horizontally to keep query matches visible. Selected rows use fzf's gutter, marker, bold text and background. Saved line numbers guide previews; accepting a buffer preserves its cursor position.
+
+The `XuePickerBuffer*` groups below follow fzf-lua highlights and supply matching dark/light defaults when those groups are absent. Theme and configured overrides remain available.
 
 ## Statusline
 
@@ -189,7 +199,7 @@ Set `defaults.hint = false` to hide the hint bar globally, `pickers.live_grep.hi
 
 Previews are disabled by default: side-by-side on wide screens, stacked on narrow screens, and hidden when space is insufficient. Loaded buffers take priority to show unsaved modifications; on-disk files are read asynchronously, capped at 1 MiB and 2,000 lines by default, centered around the target location. Binary and oversized files display an informational notice.
 
-All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The picker does not load fzf-lua automatically. Hints have fzf-lua's default colors even when its groups are absent: keys use BlanchedAlmond in dark backgrounds and MediumSpringGreen in light backgrounds; action labels use Brown1 and Brown4 respectively. Separators fall back through `FzfLuaTitle`, `FzfLuaNormal`, and `Normal`. Defined fzf-lua groups, colorscheme overrides, and explicit XuePicker highlight settings take precedence. Other linked target groups must be defined by your colorscheme or fzf-lua. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups. Diagnostic signs and codes link to the same Neovim groups used by fzf-lua.
+All highlight definitions are exposed in `defaults.highlights` and exported in [doc/default-config.lua](doc/default-config.lua). Defaults link to fzf-lua groups and preserve existing highlight definitions with `default = true`. The picker does not load fzf-lua automatically. Hints have fzf-lua's default colors even when its groups are absent: keys use BlanchedAlmond in dark backgrounds and MediumSpringGreen in light backgrounds; action labels use Brown1 and Brown4 respectively. Separators fall back through `FzfLuaTitle`, `FzfLuaNormal`, and `Normal`. Defined fzf-lua groups, colorscheme overrides, and explicit XuePicker highlight settings take precedence. Linked target groups outside hints and buffer rows must be defined by your colorscheme or fzf-lua. Error and Git status retain semantic defaults because fzf-lua has no corresponding groups. Diagnostic signs and codes link to the same Neovim groups used by fzf-lua.
 
 | Picker Group | Default Link |
 | --- | --- |
@@ -209,6 +219,17 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerHintBind` | `FzfLuaHeaderBind` |
 | `XuePickerHintSeparator` | `FzfLuaFzfHeader` |
 | `XuePickerCount` | `FzfLuaFzfInfo` |
+| `XuePickerBufferNumber` | `FzfLuaBufNr` |
+| `XuePickerBufferCurrent` | `FzfLuaBufFlagCur` |
+| `XuePickerBufferAlternate` | `FzfLuaBufFlagAlt` |
+| `XuePickerBufferLineNr` | `FzfLuaPathLineNr` |
+| `XuePickerBufferHeader` | `FzfLuaFzfHeader` |
+| `XuePickerBufferSelected` | `FzfLuaFzfCursorLine` |
+| `XuePickerBufferMatch` | `FzfLuaFzfMatch` |
+| `XuePickerBufferPointer` | `FzfLuaFzfPointer` |
+| `XuePickerBufferMarker` | `FzfLuaFzfMarker` |
+| `XuePickerBufferGutter` | Foreground from `FzfLuaFzfGutter`'s background, falling back to `Normal`'s background |
+| `XuePickerBufferStrong` | Bold text |
 | `XuePickerError` | `DiagnosticError` |
 | `XuePickerGit` | `DiffChange` |
 | `XuePickerGroup` | `FzfLuaHeaderText` |
@@ -334,7 +355,7 @@ XUE_FFF_RTP=/path/to/installed/fff make test-fff  # Optional, requires pre-built
 
 Full test suites also require a local `man` installation (e.g. `man-db` on Linux) to verify `:Man` navigation actions. `XUE_LUALINE` enables tests against a real lualine checkout; CI uses a pinned commit to verify both global and per-window statuslines.
 
-`XUE_FZF_LUA` enables rendered hint comparisons against a real fzf-lua checkout and requires the `fzf` executable. It compares every character cell and RGB attribute in dark/light backgrounds at wide and narrow widths.
+`XUE_FZF_LUA` enables rendered hint and buffer comparisons against a real fzf-lua checkout and requires the `fzf` executable. It compares every character cell and RGB attribute in dark/light backgrounds at wide and narrow widths, including buffer icons, terminal/URI/unnamed buffers, path formats, filtering, horizontal scrolling and multi-selection.
 
 The differential script extracts test oracles from the fixed reference commit into a temporary directory without taking the reference implementation as a runtime dependency. Integration tests verify success, pagination, and failure paths through a real worker/RPC setup using controlled fff test doubles; cold/hot index benchmarks with real fff native libraries require external dependencies. CI runs lint, integration, differential, and attached-UI tests across Neovim stable and nightly, recording UI snapshots and performance JSON.
 

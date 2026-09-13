@@ -418,6 +418,9 @@ def run():
         assert nvim.exec_lua("return vim.g.xue_executed==nil")
         nvim.input("<Esc>")
         check_fzf_hints(nvim)
+        if os.environ.get("XUE_FZF_LUA"):
+            from buffers import check_reference
+            check_reference(os.environ["XUE_FZF_LUA"])
         check_lualine(nvim)
         messages = nvim.command_output("messages")
         assert "Error" not in messages and "E5108" not in messages, messages

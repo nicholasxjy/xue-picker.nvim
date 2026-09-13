@@ -27,6 +27,8 @@ M.defaults = {
     XuePickerNormal = { link = "FzfLuaNormal", default = true },
     XuePickerPrompt = { link = "FzfLuaFzfPrompt", default = true },
     XuePickerMatch = { link = "FzfLuaFzfMatch", default = true },
+    XuePickerIcon = { link = "FzfLuaNormal", default = true },
+    XuePickerFilename = { link = "FzfLuaFilePart", default = true },
     XuePickerDirectory = { link = "FzfLuaDirPart", default = true },
     XuePickerSelected = { link = "FzfLuaFzfCursorLine", default = true },
     XuePickerMarker = { link = "FzfLuaFzfMarker", default = true },

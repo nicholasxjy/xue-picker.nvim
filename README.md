@@ -109,6 +109,8 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerNormal` | `FzfLuaNormal` |
 | `XuePickerPrompt` | `FzfLuaFzfPrompt` |
 | `XuePickerMatch` | `FzfLuaFzfMatch` |
+| `XuePickerIcon` | `FzfLuaNormal` (fallback when the icon provider supplies no group) |
+| `XuePickerFilename` | `FzfLuaFilePart` |
 | `XuePickerDirectory` | `FzfLuaDirPart` |
 | `XuePickerSelected` | `FzfLuaFzfCursorLine` |
 | `XuePickerMarker` | `FzfLuaFzfMarker` |
@@ -134,6 +136,8 @@ require("xue-picker").setup({
 ```
 
 Each supplied group definition replaces the inherited definition, including its `link` and `default` fields; other groups are inherited. Picker-specific and per-call `highlights` follow the usual configuration precedence. Definitions apply globally when a picker opens and are reapplied on `ColorScheme` while it is open. Use `default = true` in an override to preserve an existing definition.
+
+File icons use the highlight returned by mini.icons or nvim-web-devicons. A custom `icons(item)` callback can return `icon_text, highlight_group`; returning only text uses `XuePickerIcon`. Filename coloring applies to file rows, displayed location paths, and group headings, with search matches taking priority. Custom `path_format` output is treated as a path; a custom `format` callback controls all of its own spans.
 
 ## Optional fff Content Search
 
@@ -187,7 +191,7 @@ local selection = session:get_selection() -- Multi-selection; returns current it
 session:close()
 ```
 
-Items should provide stable `id` and `text`; file items add `path`, and location items add `lnum` and `col`. The plugin populates fields like `idx` and `score` internally without shallow- or deep-copying large item arrays. Data refreshes should provide a new array. `format(item, ctx)` returns a string and an optional list of `{ start_byte, end_byte, highlight_group }`, called only for visible items. `matcher(query, items, checkpoint)` can replace the default matcher; long loops should invoke `checkpoint()`.
+Items should provide stable `id` and `text`; file items add `path`, and location items add `lnum` and `col`. The plugin populates fields like `idx` and `score` internally without shallow- or deep-copying large item arrays. Data refreshes should provide a new array. `format(item, ctx)` returns a string and an optional list of `{ start_byte, end_byte, highlight_group, priority? }`, called only for visible items; span priority defaults to 150. `matcher(query, items, checkpoint)` can replace the default matcher; long loops should invoke `checkpoint()`.
 
 Asynchronous data sources are provided via `source(ctx, emit)`. `ctx` contains `query`, `cwd`, `generation`, and `session`. `emit(items, state)` appends items by default, replaces them when `state.replace=true`, passes `done=true` upon completion, and passes `error` on failure. The source function returns a cancellation callback. Set `live=true` and `debounce_ms` when data needs to re-fetch on query changes; callbacks from stale generations or closed sessions are discarded.
 

@@ -31,6 +31,10 @@ require("xue-picker").setup({
         default = true,
         link = "DiagnosticError",
       },
+      XuePickerFilename = {
+        default = true,
+        link = "FzfLuaFilePart",
+      },
       XuePickerGit = {
         default = true,
         link = "DiffChange",
@@ -42,6 +46,10 @@ require("xue-picker").setup({
       XuePickerHint = {
         default = true,
         link = "FzfLuaFzfHeader",
+      },
+      XuePickerIcon = {
+        default = true,
+        link = "FzfLuaNormal",
       },
       XuePickerMarker = {
         default = true,

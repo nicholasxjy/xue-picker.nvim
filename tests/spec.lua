@@ -18,6 +18,21 @@ local function ready(s)
   assert(not s.error, s.error)
   return s
 end
+local function highlighted(s, group)
+  s.ui:render()
+  local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, -1, false)
+  local spans = {}
+  for _, mark in ipairs(api.nvim_buf_get_extmarks(s.ui.bufs.list, -1, 0, -1, { details = true })) do
+    local details = mark[4]
+    if details.hl_group == group then
+      spans[#spans + 1] = {
+        text = lines[mark[2] + 1]:sub(mark[3] + 1, details.end_col),
+        priority = details.priority,
+      }
+    end
+  end
+  return spans
+end
 local fixture = vim.fn.tempname()
 vim.fn.mkdir(fixture .. "/src", "p")
 vim.fn.mkdir(fixture .. "/.git", "p")
@@ -96,6 +111,79 @@ test("default highlight links preserve theme overrides and follow target colors"
   eq(0x654321, api.nvim_get_hl(0, { name = "XuePickerMatch", link = false }).fg)
   s:close()
   vim.cmd("colorscheme default")
+end)
+test("filename and icon spans handle Unicode, escaped characters and match priority", function()
+  local name = "你好\ncafé.lua"
+  for _, path_format in ipairs({ "filename_first", "relative" }) do
+    local s = ready(picker.pick(opts({
+      items = { U.file(fixture .. "/src/" .. name, fixture) },
+      query = "café",
+      path_format = path_format,
+      icons = function()
+        return "◆ ", "Special"
+      end,
+    })))
+    eq({ { text = "◆ ", priority = 150 } }, highlighted(s, "Special"))
+    eq({ { text = U.clean(name), priority = 100 } }, highlighted(s, "XuePickerFilename"))
+    eq({ { text = "src/", priority = 150 } }, highlighted(s, "XuePickerDirectory"))
+    local matches = highlighted(s, "XuePickerMatch")
+    assert(#matches > 0)
+    for _, match in ipairs(matches) do
+      assert(match.priority > 100 and ("café"):find(match.text, 1, true))
+    end
+    s:close()
+  end
+  local s = ready(picker.pick(opts({
+    items = { U.file(fixture .. "/src/" .. name, fixture) },
+    path_format = function()
+      return "x.lua"
+    end,
+    icons = false,
+  })))
+  eq({ { text = "x.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+  eq({}, highlighted(s, "XuePickerDirectory"))
+end)
+test("icons use mini.icons, devicons and custom callback highlight groups", function()
+  local mini, devicons = package.loaded["mini.icons"], package.loaded["nvim-web-devicons"]
+  local ok, err = xpcall(function()
+    for _, provider in ipairs({ "mini.icons", "nvim-web-devicons" }) do
+      package.loaded["mini.icons"], package.loaded["nvim-web-devicons"] = nil, nil
+      package.loaded[provider] = {
+        [provider == "mini.icons" and "get" or "get_icon"] = function()
+          return "◆", "Special"
+        end,
+      }
+      local s = ready(picker.pick(opts({ items = { U.file(fixture .. "/beta.txt", fixture) } })))
+      eq({ { text = "◆ ", priority = 150 } }, highlighted(s, "Special"))
+      eq({ { text = "beta.txt", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+      s.opts.icons = function()
+        return "◇ "
+      end
+      eq({ { text = "◇ ", priority = 150 } }, highlighted(s, "XuePickerIcon"))
+      eq({}, highlighted(s, "Special"))
+      s.opts.icons = false
+      eq({}, highlighted(s, "XuePickerIcon"))
+      eq({}, highlighted(s, "Special"))
+      s:close()
+    end
+  end, debug.traceback)
+  package.loaded["mini.icons"], package.loaded["nvim-web-devicons"] = mini, devicons
+  assert(ok, err)
+end)
+test("location paths and group headings highlight filenames without coloring content as a path", function()
+  for _, group in ipairs({ false, true }) do
+    local s = ready(picker.pick(opts({
+      items = { { path = fixture .. "/src/alpha.lua", text = "content/with/slashes", lnum = 1 } },
+      group = group,
+      icons = false,
+    })))
+    eq({ { text = "alpha.lua", priority = 100 } }, highlighted(s, "XuePickerFilename"))
+    eq(
+      { { text = "src/", priority = 150 } },
+      highlighted(s, group and "XuePickerGroup" or "XuePickerDirectory")
+    )
+    s:close()
+  end
 end)
 test("mapping deduplication, disabling, conflicts before startup", function()
   local keys = C.bindings(

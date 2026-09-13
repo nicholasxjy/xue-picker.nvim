@@ -27,7 +27,8 @@ API                                                     *xue-picker-api*
         state.error 显示错误。关闭及过期 generation 的输出会被丢弃。
         live=true 随查询刷新源，debounce_ms 配置防抖。
         matcher(query, items, checkpoint) -> 匹配后的候选数组。
-        format(item, ctx) -> text, { {start_byte, end_byte, hl_group}, ... }。
+        format(item, ctx) -> text, { {start_byte, end_byte, hl_group, priority?}, ... }。
+        priority 默认 150。
         格式化仅作用于可见行；所有范围均为 [start, end)。
         on_accept(items, action, session) 在关闭并恢复窗口后运行。
         on_close(session) 在关闭时运行；session.accepted 表示已接受。
@@ -113,15 +114,21 @@ UI 与预览                                               *xue-picker-ui*
     performance.slice_ms=4、render_ms=16，preview.debounce_ms=60。
     cache_dirs=3、cache_entries=200000；重开先显示缓存并重新扫描。
     icons="auto" 检测 mini.icons / nvim-web-devicons；false 关闭。
+    图标使用 provider 返回的高亮组；icons(item) 可返回文本及高亮组。
+    仅返回文本时使用 XuePickerIcon。文件名使用 XuePickerFilename，
+    覆盖文件列表、位置路径及分组标题；匹配高亮优先于文件名颜色。
     path_format="filename_first" / "relative" / function(item,cwd)。
+    自定义 path_format 输出按路径着色；format 回调自行提供高亮范围。
 
-    高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Directory、
+    高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Icon、Filename、Directory、
     Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
     所有默认定义导出至 defaults.highlights 和 doc/default-config.lua。
     默认链接 fzf-lua 高亮组（左侧均带 XuePicker 前缀）：
         Normal       -> FzfLuaNormal
         Prompt       -> FzfLuaFzfPrompt
         Match        -> FzfLuaFzfMatch
+        Icon         -> FzfLuaNormal（provider 未返回高亮组时）
+        Filename     -> FzfLuaFilePart
         Directory    -> FzfLuaDirPart
         Selected     -> FzfLuaFzfCursorLine
         Marker       -> FzfLuaFzfMarker

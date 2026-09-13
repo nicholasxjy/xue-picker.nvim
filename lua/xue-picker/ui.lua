@@ -178,9 +178,15 @@ function M:query(text)
   api.nvim_win_set_cursor(self.wins.input, { 1, #text })
   self.setting = false
 end
-local function highlight(buf, row, first, last, group)
+local function highlight(buf, row, first, last, group, priority)
   if last > first then
-    api.nvim_buf_set_extmark(buf, ns, row, first, { end_col = last, hl_group = group, priority = 150 })
+    api.nvim_buf_set_extmark(
+      buf,
+      ns,
+      row,
+      first,
+      { end_col = last, hl_group = group, priority = priority or 150 }
+    )
   end
 end
 local function icon(item, opts)
@@ -188,18 +194,19 @@ local function icon(item, opts)
     return ""
   end
   if type(opts.icons) == "function" then
-    return opts.icons(item) or ""
+    local value, group = opts.icons(item)
+    return U.clean(value or ""), group
   end
   if item.path then
     local mini = package.loaded["mini.icons"]
     if mini then
-      local value = mini.get("file", item.path)
-      return value .. " "
+      local value, group = mini.get("file", item.path)
+      return value .. " ", group
     end
     local devicons = package.loaded["nvim-web-devicons"]
     if devicons then
-      local value = devicons.get_icon(vim.fs.basename(item.path), nil, { default = true })
-      return (value or "·") .. " "
+      local value, group = devicons.get_icon(vim.fs.basename(item.path), nil, { default = true })
+      return (value or "·") .. " ", group
     end
   end
   return ""
@@ -215,6 +222,14 @@ local function append(text, input, offset, map, logical)
   end
   return text
 end
+local function path_spans(text, offset, spans, directory_group)
+  local directory = text:match("^(.*[/\\])") or ""
+  if #directory > 0 then
+    spans[#spans + 1] = { offset, offset + #directory, directory_group or "XuePickerDirectory" }
+  end
+  -- Filename styling sits below search matches and above the selected row.
+  spans[#spans + 1] = { offset + #directory, offset + #text, "XuePickerFilename", 100 }
+end
 function M:format(item, index)
   local s, opts = self.session, self.session.opts
   if opts.format then
@@ -225,12 +240,20 @@ function M:format(item, index)
     .. " "
     .. (s.selected[item.id] and opts.marker or " ")
     .. " "
-    .. icon(item, opts)
   local text, map, spans = "", {}, {}
-  if item.path and not item.lnum and opts.path_format == "filename_first" then
+  local icon_text, icon_group = icon(item, opts)
+  if #icon_text > 0 then
+    spans[#spans + 1] = { #prefix, #prefix + #icon_text, icon_group or "XuePickerIcon" }
+    prefix = prefix .. icon_text
+  end
+  if type(opts.path_format) == "function" and item.path then
+    text = U.clean(opts.path_format(item, opts.cwd))
+    path_spans(text, #prefix, spans)
+  elseif item.path and not item.lnum and opts.path_format == "filename_first" then
     local dir, name = item.text:match("^(.*[/\\])([^/\\]+)$")
     name = name or item.text
     text = append(text, name, #prefix, map, #item.text - #name)
+    spans[#spans + 1] = { #prefix, #prefix + #text, "XuePickerFilename", 100 }
     if dir then
       text = text .. "  "
       local start = #prefix + #text
@@ -239,10 +262,9 @@ function M:format(item, index)
     end
   else
     text = append(text, item.text, #prefix, map, 0)
-  end
-  if type(opts.path_format) == "function" and item.path then
-    text = U.clean(opts.path_format(item, opts.cwd))
-    map = {}
+    if item.path and not item.lnum then
+      path_spans(text, #prefix, spans)
+    end
   end
   if item.ranges then
     for _, range in ipairs(item.ranges) do
@@ -262,9 +284,9 @@ function M:format(item, index)
   if item.lnum then
     text = text .. ("  :%d:%d"):format(item.lnum, (item.col or 0) + 1)
     if item.path and not opts.group and opts.name ~= "marks" then
-      local start = #prefix + #text
-      text = text .. "  " .. U.clean(U.relative(item.path, opts.cwd))
-      spans[#spans + 1] = { start, #prefix + #text, "XuePickerDirectory" }
+      local path = U.clean(U.relative(item.path, opts.cwd))
+      path_spans(path, #prefix + #text + 2, spans)
+      text = text .. "  " .. path
     end
   end
   if item.status then
@@ -303,8 +325,13 @@ function M:render()
         if #lines >= height - 1 then
           break
         end
-        lines[#lines + 1] = "  " .. U.clean(U.relative(item.path or "", s.opts.cwd))
-        marks[#marks + 1] = { #lines - 1, 0, #lines[#lines], "XuePickerGroup" }
+        local path = U.clean(U.relative(item.path or "", s.opts.cwd))
+        lines[#lines + 1] = "  " .. path
+        local spans = {}
+        path_spans(path, 2, spans, "XuePickerGroup")
+        for _, span in ipairs(spans) do
+          marks[#marks + 1] = { #lines - 1, unpack(span) }
+        end
         previous = item.path
       end
       if #lines >= height then

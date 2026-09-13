@@ -185,6 +185,105 @@ test("location paths and group headings highlight filenames without coloring con
     s:close()
   end
 end)
+test("live_grep renders header icons and leading aligned locations with accurate match spans", function()
+  local items = {
+    {
+      id = "a",
+      path = fixture .. "/src/alpha.lua",
+      lnum = 2,
+      col = 8,
+      text = "\t你好 match",
+      ranges = { { 8, 13 } },
+    },
+    {
+      id = "b",
+      path = fixture .. "/src/alpha.lua",
+      lnum = 24,
+      col = 9,
+      text = "         match",
+      ranges = { { 9, 14 } },
+    },
+    {
+      id = "c",
+      path = fixture .. "/z.txt",
+      lnum = 300,
+      col = 119,
+      text = string.rep(" ", 119) .. "match",
+      ranges = { { 119, 124 } },
+    },
+  }
+  local s = ready(B.live_grep(opts({
+    query = "match",
+    source = function(_, emit)
+      emit(items, { replace = true, done = true })
+    end,
+    icons = function()
+      return "◆ ", "Special"
+    end,
+  })))
+  eq({ { text = "◆ ", priority = 150 }, { text = "◆ ", priority = 150 } }, highlighted(s, "Special"))
+  local lines = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 5, false)
+  eq("  ◆ src/alpha.lua", lines[1])
+  eq("▸   " .. "  2:  9  " .. U.clean(items[1].text), lines[2])
+  eq("    " .. " 24: 10  " .. items[2].text, lines[3])
+  eq("  ◆ z.txt", lines[4])
+  eq("    " .. "300:120  " .. items[3].text, lines[5])
+  eq(
+    { { text = "  2", priority = 150 }, { text = " 24", priority = 150 }, { text = "300", priority = 150 } },
+    highlighted(s, "XuePickerLineNr")
+  )
+  eq(
+    { { text = "  9", priority = 150 }, { text = " 10", priority = 150 }, { text = "120", priority = 150 } },
+    highlighted(s, "XuePickerColNr")
+  )
+  local matches = highlighted(s, "XuePickerMatch")
+  eq(15, #matches)
+  for _, match in ipairs(matches) do
+    assert(("match"):find(match.text, 1, true))
+  end
+  eq("FzfLuaPathLineNr", api.nvim_get_hl(0, { name = "XuePickerLineNr" }).link)
+  eq("FzfLuaPathColNr", api.nvim_get_hl(0, { name = "XuePickerColNr" }).link)
+  s.opts.path_format = function(item)
+    return "custom/" .. vim.fs.basename(item.path)
+  end
+  s.opts.icons = false
+  s.ui:render()
+  eq({}, highlighted(s, "Special"))
+  local custom = api.nvim_buf_get_lines(s.ui.bufs.list, 0, 2, false)
+  eq("  custom/alpha.lua", custom[1])
+  eq(lines[2], custom[2])
+end)
+test("live_grep location widths follow streaming results and stay aligned across scrolling", function()
+  local emit_rows
+  local first = { id = "first", path = fixture .. "/alpha.lua", lnum = 2, text = "match" }
+  local s = ready(B.live_grep(opts({
+    query = "match",
+    icons = false,
+    source = function(_, emit)
+      emit_rows = emit
+      emit({ first }, { replace = true, done = true })
+    end,
+  })))
+  s.ui.list_height = 2
+  eq({ { text = "2", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  eq({ { text = "1", priority = 150 } }, highlighted(s, "XuePickerColNr"))
+  emit_rows(
+    { { id = "last", path = fixture .. "/z.lua", lnum = 1000, col = 99, text = "match" } },
+    { done = true }
+  )
+  ready(s)
+  eq({ { text = "   2", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  eq({ { text = "  1", priority = 150 } }, highlighted(s, "XuePickerColNr"))
+  s:act("next")
+  eq({ { text = "1000", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  eq({ { text = "100", priority = 150 } }, highlighted(s, "XuePickerColNr"))
+  s:act("previous")
+  eq({ { text = "   2", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  emit_rows({ first }, { replace = true, done = true })
+  ready(s)
+  eq({ { text = "2", priority = 150 } }, highlighted(s, "XuePickerLineNr"))
+  eq({ { text = "1", priority = 150 } }, highlighted(s, "XuePickerColNr"))
+end)
 test("mapping deduplication, disabling, conflicts before startup", function()
   local keys = C.bindings(
     { keymaps = { next = { "<C-n>", "<c-n>" }, accept = {}, close = false } },

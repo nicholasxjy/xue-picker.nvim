@@ -105,6 +105,11 @@ Grep 后端                                                *xue-picker-grep*
     非默认扫描范围及 rg 扩展选项转给 rg；禁用 fallback 时明确报错。
     ripgrep.args 不应覆盖 JSON/模式/输出契约。
     所有后端输出 1-based 行号、0-based 字节列和 [start,end) 匹配范围。
+    live_grep 的图标与文件路径位于同一分组标题行；匹配行开头显示
+    右对齐的 行号:列号，两个字段分别按当前结果的最大位数对齐。
+    显示行列均为 1-based，滚动时宽度保持一致；新结果到达后重新计算。
+    行号使用 XuePickerLineNr，列号使用 XuePickerColNr。
+    自定义 path_format 回调用于文件路径标题。
 
 UI 与预览                                               *xue-picker-ui*
     layout.height=0.4, max_height=18，底部全宽，输入/结果/提示三段。
@@ -121,7 +126,7 @@ UI 与预览                                               *xue-picker-ui*
     自定义 path_format 输出按路径着色；format 回调自行提供高亮范围。
 
     高亮组（均带 XuePicker 前缀）：Normal、Prompt、Match、Icon、Filename、Directory、
-    Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
+    LineNr、ColNr、Selected、Marker、Hint、Count、Error、Git、Group、PreviewLine、Border。
     所有默认定义导出至 defaults.highlights 和 doc/default-config.lua。
     默认链接 fzf-lua 高亮组（左侧均带 XuePicker 前缀）：
         Normal       -> FzfLuaNormal
@@ -130,6 +135,8 @@ UI 与预览                                               *xue-picker-ui*
         Icon         -> FzfLuaNormal（provider 未返回高亮组时）
         Filename     -> FzfLuaFilePart
         Directory    -> FzfLuaDirPart
+        LineNr       -> FzfLuaPathLineNr
+        ColNr        -> FzfLuaPathColNr
         Selected     -> FzfLuaFzfCursorLine
         Marker       -> FzfLuaFzfMarker
         Hint         -> FzfLuaFzfHeader

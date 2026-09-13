@@ -52,6 +52,8 @@ require("xue-picker.builtin").live_grep({ mode = "plain", globs = { "*.lua", "!v
 
 `cwd` defaults to the working directory at call time. By default, hidden files are included, ignore rules are respected, `.git` contents are excluded, and symlinks are not followed; spaces, newlines, backslashes, and `$` in paths are treated as literal filenames. The UI displays control characters as visible symbols, while file opening and quickfix export preserve the original paths.
 
+`live_grep` displays each file icon beside its filepath header. Each match starts with separate, right-aligned `line:column` fields before the content; both displayed numbers are 1-based. Field widths use the widest numbers in the current results and remain consistent while scrolling. A custom `path_format` callback formats the filepath header.
+
 ## Query Syntax and Sorting
 
 `files`, `smart`, and local filtering use a standalone matcher implementation, differentially verified against `fuzzy.new_snacks` from [`minibuffer.nvim/xue-2@241e22c`](https://github.com/nicholasxjy/minibuffer.nvim/tree/241e22ccc870e47c78a07264ee7890d355e37102).
@@ -112,6 +114,8 @@ All highlight definitions are exposed in `defaults.highlights` and exported in [
 | `XuePickerIcon` | `FzfLuaNormal` (fallback when the icon provider supplies no group) |
 | `XuePickerFilename` | `FzfLuaFilePart` |
 | `XuePickerDirectory` | `FzfLuaDirPart` |
+| `XuePickerLineNr` | `FzfLuaPathLineNr` |
+| `XuePickerColNr` | `FzfLuaPathColNr` |
 | `XuePickerSelected` | `FzfLuaFzfCursorLine` |
 | `XuePickerMarker` | `FzfLuaFzfMarker` |
 | `XuePickerHint` | `FzfLuaFzfHeader` |

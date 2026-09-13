@@ -19,6 +19,10 @@ require("xue-picker").setup({
         default = true,
         link = "FzfLuaBorder",
       },
+      XuePickerColNr = {
+        default = true,
+        link = "FzfLuaPathColNr",
+      },
       XuePickerCount = {
         default = true,
         link = "FzfLuaFzfInfo",
@@ -50,6 +54,10 @@ require("xue-picker").setup({
       XuePickerIcon = {
         default = true,
         link = "FzfLuaNormal",
+      },
+      XuePickerLineNr = {
+        default = true,
+        link = "FzfLuaPathLineNr",
       },
       XuePickerMarker = {
         default = true,

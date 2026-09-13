@@ -30,6 +30,8 @@ M.defaults = {
     XuePickerIcon = { link = "FzfLuaNormal", default = true },
     XuePickerFilename = { link = "FzfLuaFilePart", default = true },
     XuePickerDirectory = { link = "FzfLuaDirPart", default = true },
+    XuePickerLineNr = { link = "FzfLuaPathLineNr", default = true },
+    XuePickerColNr = { link = "FzfLuaPathColNr", default = true },
     XuePickerSelected = { link = "FzfLuaFzfCursorLine", default = true },
     XuePickerMarker = { link = "FzfLuaFzfMarker", default = true },
     XuePickerHint = { link = "FzfLuaFzfHeader", default = true },

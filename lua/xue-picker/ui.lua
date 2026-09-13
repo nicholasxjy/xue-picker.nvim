@@ -236,17 +236,28 @@ function M:format(item, index)
     local value, spans = opts.format(item, { width = self.list_width, index = index, session = s })
     return U.clean(value), spans or {}
   end
+  local grep = opts.name == "live_grep"
   local prefix = (index == s.index and opts.pointer or " ")
     .. " "
     .. (s.selected[item.id] and opts.marker or " ")
     .. " "
   local text, map, spans = "", {}, {}
-  local icon_text, icon_group = icon(item, opts)
-  if #icon_text > 0 then
-    spans[#spans + 1] = { #prefix, #prefix + #icon_text, icon_group or "XuePickerIcon" }
-    prefix = prefix .. icon_text
+  if grep and item.lnum then
+    local line = ("%" .. (self.line_width or 1) .. "d"):format(item.lnum)
+    local column = ("%" .. (self.column_width or 1) .. "d"):format((item.col or 0) + 1)
+    spans[#spans + 1] = { #prefix, #prefix + #line, "XuePickerLineNr" }
+    prefix = prefix .. line .. ":"
+    spans[#spans + 1] = { #prefix, #prefix + #column, "XuePickerColNr" }
+    prefix = prefix .. column .. "  "
   end
-  if type(opts.path_format) == "function" and item.path then
+  if not (grep and opts.group) then
+    local icon_text, icon_group = icon(item, opts)
+    if #icon_text > 0 then
+      spans[#spans + 1] = { #prefix, #prefix + #icon_text, icon_group or "XuePickerIcon" }
+      prefix = prefix .. icon_text
+    end
+  end
+  if not grep and type(opts.path_format) == "function" and item.path then
     text = U.clean(opts.path_format(item, opts.cwd))
     path_spans(text, #prefix, spans)
   elseif item.path and not item.lnum and opts.path_format == "filename_first" then
@@ -282,7 +293,9 @@ function M:format(item, index)
     end
   end
   if item.lnum then
-    text = text .. ("  :%d:%d"):format(item.lnum, (item.col or 0) + 1)
+    if not grep then
+      text = text .. ("  :%d:%d"):format(item.lnum, (item.col or 0) + 1)
+    end
     if item.path and not opts.group and opts.name ~= "marks" then
       local path = U.clean(U.relative(item.path, opts.cwd))
       path_spans(path, #prefix + #text + 2, spans)
@@ -307,6 +320,18 @@ function M:render()
   if #s.results > 0 and not s.first_results_at then
     s.first_results_at = vim.uv.hrtime() / 1e6
   end
+  local grep = s.opts.name == "live_grep"
+  if grep and self.location_results ~= s.results then
+    -- Rank publishes a new result array; reuse widths while moving or scrolling.
+    self.location_results = s.results
+    self.line_width, self.column_width = 1, 1
+    for _, item in ipairs(s.results) do
+      if item.lnum then
+        self.line_width = math.max(self.line_width, #tostring(item.lnum))
+        self.column_width = math.max(self.column_width, #tostring((item.col or 0) + 1))
+      end
+    end
+  end
   local lines, marks, selected_row = {}, {}, nil
   local height = self.list_height
   s.offset = math.max(1, math.min(s.offset or 1, math.max(1, #s.results)))
@@ -325,10 +350,20 @@ function M:render()
         if #lines >= height - 1 then
           break
         end
-        local path = U.clean(U.relative(item.path or "", s.opts.cwd))
-        lines[#lines + 1] = "  " .. path
-        local spans = {}
-        path_spans(path, 2, spans, "XuePickerGroup")
+        local path = U.clean(
+          grep and type(s.opts.path_format) == "function" and s.opts.path_format(item, s.opts.cwd)
+            or U.relative(item.path or "", s.opts.cwd)
+        )
+        local prefix, spans = "  ", {}
+        if grep then
+          local icon_text, icon_group = icon(item, s.opts)
+          if #icon_text > 0 then
+            spans[#spans + 1] = { #prefix, #prefix + #icon_text, icon_group or "XuePickerIcon" }
+            prefix = prefix .. icon_text
+          end
+        end
+        lines[#lines + 1] = prefix .. path
+        path_spans(path, #prefix, spans, "XuePickerGroup")
         for _, span in ipairs(spans) do
           marks[#marks + 1] = { #lines - 1, unpack(span) }
         end

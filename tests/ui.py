@@ -88,8 +88,15 @@ def run():
         nvim.exec_lua("s:close()")
         assert nvim.exec_lua("return vim.o.cmdheight==1")
         assert not nvim.exec_lua("return vim.api.nvim_buf_is_valid(s.input_buf)")
-        nvim.exec_lua("s=require('xue-picker.builtin').live_grep({cwd=...,backend='ripgrep',query='function',git={enabled=false}})", str(ROOT))
+        nvim.exec_lua("s=require('xue-picker.builtin').live_grep({cwd=...,backend='ripgrep',query='function',git={enabled=false},icons=function() return '◆ ', 'Special' end})", str(ROOT))
         wait(nvim, "not s.loading and not s.searching and #s.results>0")
+        nvim.exec_lua("""
+          s.ui:render()
+          local lines=vim.api.nvim_buf_get_lines(s.ui.bufs.list,0,2,false)
+          assert(lines[1]=='  ◆ '..require('xue-picker.util').relative(s.results[1].path,s.opts.cwd))
+          assert(lines[2]:match('^▸%s+%d+:%s*%d+  '))
+          assert(not lines[2]:find('◆',1,true))
+        """)
         for _ in range(22):
             nvim.input("<C-n>")
         wait(nvim, "s.index==23")

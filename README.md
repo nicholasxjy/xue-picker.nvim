@@ -139,7 +139,7 @@ renders with unchanged state do not emit another event.
 
 ## Query Syntax and Sorting
 
-`smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. To match `find_files` ranking, the worker uses fff's configured thread count, history settings, frecency/query database paths, and indexing options. The invoking file is passed as a relative path within `cwd`, matching fff's current-file penalty and distance scoring. Results come from fff's index in `cwd`; buffers and oldfiles are no longer merged. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
+`smart` passes queries directly to [fff's `file_search()`](https://github.com/dmtrKovalenko/fff#file_searchquery-opts), including constraints such as `*.lua`, `!test/`, and `git:modified`. fff supplies matching, ordering, byte highlights and `:line:col` locations. Empty queries return fff's ranked file list. Searches run in the background worker described below, with no local matcher or extra scoring. To match `find_files` ranking, the worker uses fff's configured thread count, history settings, frecency/query database paths, and indexing options. The invoking file is passed as a relative path within `cwd`, matching fff's current-file penalty and distance scoring. Results come from fff's index in `cwd`. The index includes hidden files and respects ignore files; `scan` and local `matcher` options do not apply to `smart`. Missing or failing fff displays an error in the picker.
 
 Pass `file_search` parameters directly to `smart`, or configure them under `setup({ pickers = { smart = { ... } } })`:
 
@@ -215,8 +215,11 @@ require("xue-picker").setup({
       preview = "<C-o>", refresh = "<C-r>",
     },
     preview = { enabled = false, max_bytes = 1024 * 1024, max_lines = 2000 },
-    layout = { height = 0.4, max_height = 18, wide = 100 },
+    layout = { height = 0.4, max_height = 18, wide = 100, preview_width = 0.5 },
     icons = "auto", -- false, function, or installed mini.icons / nvim-web-devicons
+    pointer = "▌",
+    marker = "┃",
+    gutter = "▌",
     hint = true, -- false hides the bottom hint bar and gives its row to results/preview
     path_format = "filename_first", -- "relative" or function(item, cwd)
   },

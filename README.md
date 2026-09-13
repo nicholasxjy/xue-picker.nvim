@@ -17,6 +17,7 @@ local builtin = require("xue-picker.builtin")
 vim.keymap.set("n", "<leader><space>", builtin.smart)
 vim.keymap.set("n", "<leader>ff", builtin.files)
 vim.keymap.set("n", "<leader>fg", builtin.live_grep)
+vim.keymap.set("n", "<leader>sw", builtin.grep_word, { desc = "Grep word under cursor" })
 vim.keymap.set("n", "<leader>fb", builtin.buffers)
 vim.keymap.set("n", "<leader>fd", builtin.diagnostics)
 vim.keymap.set("n", "<leader>fr", require("xue-picker").resume)
@@ -34,6 +35,7 @@ With lazy.nvim, add `{ "nicholasxjy/xue-picker.nvim", opts = {} }`. Ready to use
 | `smart` | Merges directory files, normal listed buffers, and valid recent files; deduplicates by absolute path, applies cwd/frecency weighting, `filter.cwd=true`. |
 | `buffers` | Includes unlisted/unnamed buffers; `%` current, `#` alternate, `+` modified, `RO` read-only; deletion protects unsaved changes by default, explicit `force=true` forces deletion. |
 | `live_grep` | regex, smartcase, grouped by file; `backend`, `mode`, `globs`, and `max_results` are configurable. |
+| `grep_word` | Opens `live_grep` with the word under the cursor and literal matching (`mode="plain"`); inherits `live_grep` settings and accepts its options. |
 | `diagnostics` | Workspace diagnostics, severity-first order, reacts to `DiagnosticChanged`; `scope="buffer"/"cwd"`, `bufnr`, and `severity` follow `vim.diagnostic.get()` semantics. |
 | `marks` | Global marks and calling buffer local marks, includes line/column and context, unfolds folds on jump. |
 | `oldfiles` | Valid regular files only, preserves recency order; `filter.cwd=true` restricts to cwd. |
@@ -48,7 +50,10 @@ require("xue-picker.builtin").files({ cwd = "~/project" })
 require("xue-picker.builtin").diagnostics({ scope = "buffer" })
 require("xue-picker.builtin").diagnostics({ severity = { min = vim.diagnostic.severity.WARN } })
 require("xue-picker.builtin").live_grep({ mode = "plain", globs = { "*.lua", "!vendor/**" } })
+require("xue-picker.builtin").grep_word({ cwd = "~/project" })
 ```
+
+`grep_word()` reads `<cword>` from the invoking buffer, respecting its `iskeyword` option, before opening the picker. The query remains editable. Pass `mode="regex"` to interpret the word as a regex; `query` is always set from the cursor. If no word is available, the picker opens with an empty query. It uses `setup.pickers.live_grep` settings.
 
 `cwd` defaults to the working directory at call time. By default, hidden files are included, ignore rules are respected, `.git` contents are excluded, and symlinks are not followed; spaces, newlines, backslashes, and `$` in paths are treated as literal filenames. The UI displays control characters as visible symbols, while file opening and quickfix export preserve the original paths.
 

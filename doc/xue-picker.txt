@@ -14,7 +14,7 @@ API                                                         *xue-picker-api*
         See doc/default-config.lua for all defaults.
 
     require("xue-picker.builtin").NAME(opts)
-        NAME: files, smart, buffers, live_grep, diagnostics, marks,
+        NAME: files, smart, buffers, live_grep, grep_word, diagnostics, marks,
               oldfiles, git_files, history, manpages.
         cwd defaults to the working directory at the time of the call;
         hidden=true, ignore=true, follow=false.
@@ -60,6 +60,13 @@ Builtins                                                *xue-picker-builtin*
         % current, # alternate, + modified, RO read-only.
         delete protects unsaved changes by default; force=true allows deletion.
     live_grep: regex/plain, smartcase, grouped by file. See |xue-picker-grep|.
+    grep_word: Opens live_grep with <cword> from the invoking buffer, respecting
+        'iskeyword'. Uses mode="plain" by default; accepts live_grep options
+        and inherits setup.pickers.live_grep settings. The query remains editable.
+        Pass mode="regex" to interpret the word as a regex. query is always taken
+        from the cursor; an absent word opens an empty query.
+        Example: require("xue-picker.builtin").grep_word({ cwd = "~/project" })
+        Command: :XuePicker grep_word
     diagnostics: scope="workspace"/"buffer"/"cwd"; passes through bufnr and severity.
         severity follows |vim.diagnostic.get()|; more severe diagnostics come first.
     marks: Global marks and local marks from the invoking buffer; unfolds on jump.

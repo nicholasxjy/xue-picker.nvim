@@ -5,6 +5,7 @@ M.names = {
   "smart",
   "buffers",
   "live_grep",
+  "grep_word",
   "diagnostics",
   "marks",
   "oldfiles",
@@ -189,6 +190,12 @@ function M.live_grep(opts)
         return ctx.session.grep_search(ctx.query, emit)
       end
   end)
+end
+function M.grep_word(opts)
+  local options = vim.tbl_extend("force", { mode = "plain" }, opts or {}, {
+    query = vim.fn.expand("<cword>"),
+  })
+  return M.live_grep(options)
 end
 function M.diagnostics(opts)
   return launch("diagnostics", opts, function(o)
